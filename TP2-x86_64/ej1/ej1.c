@@ -1,6 +1,9 @@
 #include "ej1.h"
 
 string_proc_list* string_proc_list_create(void){
+
+	print('plis funciona');
+	return NULL;
 }
 
 string_proc_node* string_proc_node_create(uint8_t type, char* hash){
