@@ -11,6 +11,7 @@ char* mi_strdup(const char* s) {
 }
 
 string_proc_list* string_proc_list_create(void){
+	
 
 	string_proc_list* list = (string_proc_list*)malloc(sizeof(string_proc_list));
 	if (list == NULL) return NULL;
@@ -104,12 +105,13 @@ void string_proc_node_destroy(string_proc_node* node){
 	if (node == NULL) return;
 	
 	if (node->hash != NULL) {
-        free(node->hash); 
+        free(node->hash);
+		node->hash = NULL; 
     }
 
 	node->next      = NULL;
 	node->previous	= NULL;
-	node->hash		= NULL;
+	// node->hash		= NULL;
 	node->type      = 0;			
 	free(node);
 }
@@ -127,7 +129,7 @@ char* str_concat(char* a, char* b) {
 
 void string_proc_list_print(string_proc_list* list, FILE* file){
 		if (list == NULL || file == NULL) return;
-		
+
         uint32_t length = 0;
         string_proc_node* current_node  = list->first;
         while(current_node != NULL){
