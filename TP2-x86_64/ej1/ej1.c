@@ -1,6 +1,15 @@
 #include "ej1.h"
 #include <string.h>
 
+
+char* mi_strdup(const char* s) {
+    if (s == NULL) return NULL;
+    size_t len = strlen(s) + 1;
+    char* new = malloc(len);
+    if (new == NULL) return NULL;
+    return memcpy(new, s, len);
+}
+
 string_proc_list* string_proc_list_create(void){
 
 	string_proc_list* list = (string_proc_list*)malloc(sizeof(string_proc_list));
@@ -17,7 +26,7 @@ string_proc_node* string_proc_node_create(uint8_t type, char* hash){
 	string_proc_node* node = (string_proc_node*)malloc(sizeof(string_proc_node));
 	if (node == NULL) return NULL;
 	
-	char* hash_copy = strdup(hash);
+	char* hash_copy = mi_strdup(hash);
 	if (hash_copy == NULL) {
 		free(node);
 		return NULL;
@@ -51,7 +60,7 @@ void string_proc_list_add_node(string_proc_list* list, uint8_t type, char* hash)
 char* string_proc_list_concat(string_proc_list* list, uint8_t type , char* hash){
 	if (list == NULL || hash == NULL) return NULL;
 	
-	char* result = strdup(hash);
+	char* result = mi_strdup(hash);
 	if (result == NULL) return NULL;
 	
 	string_proc_node* current = list->first;
