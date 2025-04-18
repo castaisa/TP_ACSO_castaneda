@@ -14,9 +14,60 @@ Por este motivo, el input debe ser igual al
 string en rsi, por este motivo, 
 luego de ejecutar la instrucción “lea	rsi, [rip + 818274]”
 imprimo el valor de rsi haciendo “x/s $rsi”. Así obtuve el 
-input necesario para que la bomba no explotara.
+input necesario para que la bomba no explotara: “Los hermanos sean unidos porque esa es la ley primera porque si entre ellos se pelean los devoran los de ajuera”.
 
-El input es: “Los hermanos sean unidos porque esa es la ley primera porque si entre ellos se pelean los devoran los de ajuera”.
+Para desactivar la phase_2, vi que tenía que meter como input tres numeros (n1, n2 y n3), 
+que tenian que cumplir las siguientes condiciones:
+(n1 XOR n2 ) >> 1 == n3
+n3 < 0 
+así probando numeros que cumplieran ambas condiciones, me quede con "1 - 1 y -1" ya que 
+n3 es negativo, y -1 XOR 1 es -2 y -2 shifteado (>> 1) es -1 y por ende el resultado es 
+igual a n3 por lo que se cumplen las condiciones.
+
+Para desactivar la fase 3, lo primero que hice fue ver que tipo de input 
+deberia ingresar, e imprimiendo vi que debia ser una palabra (string (s%)) seguida 
+de un decimal (d%). Despues, vi que el segundo input debia ser igual al resultado de 
+la funcioon cuenta. Cuenta es una funcion que realiza una busqueda binaria sobre las palabras 
+de palabras.txt. Imprimi las palabras por las que iba pasando y las guarde en una lista:
+engringarse
+conciliar 
+arrecadar
+ajorrar
+acoquinar
+acalorar
+aboquillar
+abatatar
+abanicar
+abalizar
+abajar
+abalar
+abaldonar
+la función cuenta iba sumando el primer byte de todas las palabras por las que pasaba, 
+es decir, cuando pasaba por ‘engringarse’ se quedaba con la letra ‘e’, la pasaba a ASCII y 
+lo sumaba. Como el numero que debía devolver cuenta tenia que ser mayor a 401, las primeras 4 
+iteraciones no eran suficientes, ya que la suma de sus primeros caracteres era
+menor a 401 (101 + 99 + 97 + 97 = 394 ), así que recien la quinta palabra (acoquinar) 
+funcionaba ya que ahora la suma daba 491. Ese numero era el que debia ser pasado como segundo 
+input, por lo que el input resultante fue “acoquinar 491”
+
+Para desactivar la fase cuatro, analicé el código y vi que necesitaba dos valores decimales 
+como input (“d% d%”). El primer valor que, gracias a la 
+operación AND, (que se hace con 15 o 1111 en binario) iva siempre entre 0 y 15,  
+serviría como índice inicial en un array, (que imprimí para ver que valores tenia 
+usando x/32d 0x4cde60) que luego se recorrería usando cada valor encontrado como el siguiente
+índice hasta encontrar el valor 15. Para que la bomba no explote, había que hacer exactamente 11
+pasos, por lo que yendo desde el 15 fui recorriendo los índices hacia atrás (a mano) hasta 
+contar 11, lo que me llevó al índice 11 del array (por lo que lo elegí como input) y el 
+segundo input debía ser la suma de todos los valores por los que habia pasado, asi que los conte
+a mano y me dio 77 (5 + 10 + 3 + 8 + 0 + 7 + 9 + 12 + 2 + 6 + 15 = 77). Por lo tanto, 
+la solución fue "11 77". El array que obtuve fue: >>> x/32d 0x4cde60
+0x4cde60 <array.0>:     7       4       6       8
+0x4cde70 <array.0+16>:  13      10      15      9
+0x4cde80 <array.0+32>:  0       12      3       5
+0x4cde90 <array.0+48>:  2       11      1       14
+
+
+
 
 
 
