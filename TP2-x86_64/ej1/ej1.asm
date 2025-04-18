@@ -17,6 +17,40 @@ extern malloc
 extern free
 extern str_concat
 
+mi_strdup:
+        push    rbp
+        mov     rbp, rsp
+        sub     rsp, 32
+        mov     QWO [rbp-24], rdi
+        cmp     QWORD [rbp-24], 0
+        jne     .L2
+        mov     eax, 0
+        jmp     .L3
+.L2:
+        mov     rax, QWORD [rbp-24]
+        mov     rdi, rax
+        call    strlen
+        add     rax, 1
+        mov     QWORD [rbp-8], rax
+        mov     rax, QWORD [rbp-8]
+        mov     rdi, rax
+        call    malloc
+        mov     QWORD [rbp-16], rax
+        cmp     QWORD [rbp-16], 0
+        jne     .L4
+        mov     eax, 0
+        jmp     .L3
+.L4:
+        mov     rdx, QWORD [rbp-8]
+        mov     rcx, QWORD [rbp-24]
+        mov     rax, QWORD [rbp-16]
+        mov     rsi, rcx
+        mov     rdi, rax
+        call    memcpy
+.L3:
+        leave
+        ret
+
 
 string_proc_list_create_asm:
 push    rbp
@@ -102,7 +136,7 @@ push    rbp
         mov     rdx, QWORD "" [rbp-40]
         mov     rsi, rdx
         mov     edi, eax
-        call    string_proc_node_create
+        call    string_proc_node_create_asm
         mov     QWORD "" [rbp-8], rax
         cmp     QWORD "" [rbp-8], 0
         je      .L20
