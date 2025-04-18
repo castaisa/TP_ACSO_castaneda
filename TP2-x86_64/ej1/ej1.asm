@@ -16,12 +16,14 @@ global string_proc_list_concat_asm
 extern malloc
 extern free
 extern str_concat
+extern memcpy
+extern strlen
 
 mi_strdup:
         push    rbp
         mov     rbp, rsp
         sub     rsp, 32
-        mov     QWO [rbp-24], rdi
+        mov     QWORD [rbp-24], rdi
         cmp     QWORD [rbp-24], 0
         jne     .L2
         mov     eax, 0
