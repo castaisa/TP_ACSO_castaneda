@@ -16,7 +16,7 @@ global string_proc_list_concat_asm
 extern malloc
 extern free
 extern str_concat
-extern memcpy #Agrego funciones auxiliares
+extern memcpy
 extern strlen
 
 mi_strdup:
