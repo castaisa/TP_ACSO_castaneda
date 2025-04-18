@@ -1,0 +1,23 @@
+Isabel castañeda
+icastaneda@udesa.edu.ar
+
+Para desactivar la bomba en la fase 1, hay que evitar que “jne” 
+(jump not equal) salte hacia “call	0x40243e <explode_bomb>” y 
+explote la bomba, para eso, la flag Zero (FZ) tiene que estar en 1. 
+Para que la flag se ponga en 1, ‘eax’ tiene que ser cero ya que si 
+es asi, test eax, eax, actualiza la ZF, sino , la deja en 0 y explota.
+Para que eax sea cero “strings_not_equal” que es una función que
+compara dos strings tiene que comparar el input con el string que 
+se guarda en “rsi” y estos dos tienen que ser iguales. 
+Si son distintos, no se actualiza la ZF y explota la bomba. 
+Por este motivo, el input debe ser igual al
+string en rsi, por este motivo, 
+luego de ejecutar la instrucción “lea	rsi, [rip + 818274]”
+imprimo el valor de rsi haciendo “x/s $rsi”. Así obtuve el 
+input necesario para que la bomba no explotara.
+
+El input es: “Los hermanos sean unidos porque esa es la ley primera porque si entre ellos se pelean los devoran los de ajuera”.
+
+
+
+
