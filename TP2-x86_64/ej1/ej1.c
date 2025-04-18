@@ -2,7 +2,7 @@
 #include <string.h>
 
 
-char* mi_strdup(const char* s) {
+char* hacer_copia(const char* s) {
     if (s == NULL) return NULL;
     size_t len = strlen(s) + 1;
     char* new = malloc(len);
@@ -11,7 +11,6 @@ char* mi_strdup(const char* s) {
 }
 
 string_proc_list* string_proc_list_create(void){
-	
 
 	string_proc_list* list = (string_proc_list*)malloc(sizeof(string_proc_list));
 	if (list == NULL) return NULL;
@@ -27,7 +26,7 @@ string_proc_node* string_proc_node_create(uint8_t type, char* hash){
 	string_proc_node* node = (string_proc_node*)malloc(sizeof(string_proc_node));
 	if (node == NULL) return NULL;
 	
-	char* hash_copy = mi_strdup(hash);
+	char* hash_copy = hacer_copia(hash);
 	if (hash_copy == NULL) {
 		free(node);
 		return NULL;
@@ -47,11 +46,9 @@ void string_proc_list_add_node(string_proc_list* list, uint8_t type, char* hash)
 	if (new_node == NULL) return;
 	
 	if (list->first == NULL) {
-		// Lista vacía
 		list->first = new_node;
 		list->last = new_node;
 	} else {
-		// Agregamos al final de la lista
 		new_node->previous = list->last;
 		list->last->next = new_node;
 		list->last = new_node;
@@ -61,7 +58,7 @@ void string_proc_list_add_node(string_proc_list* list, uint8_t type, char* hash)
 char* string_proc_list_concat(string_proc_list* list, uint8_t type , char* hash){
 	if (list == NULL || hash == NULL) return NULL;
 	
-	char* result = mi_strdup(hash);
+	char* result = hacer_copia(hash);
 	if (result == NULL) return NULL;
 	
 	string_proc_node* current = list->first;
