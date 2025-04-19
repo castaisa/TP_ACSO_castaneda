@@ -67,7 +67,14 @@ la solución fue "11 77". El array que obtuve fue: >>> x/32d 0x4cde60
 0x4cde90 <array.0+48>:  2       11      1       14
 
 
-
+Para la fase secreta de la bomba, identifique que el input de la fase debia ser un numero tal que
+al recorrer un arbol binario que se encontraba en la funcion fun7, debia devolver 1.
+La formula recursiva con la que se recorrian los nodos y se actualizaba el
+valor de fun7 tenia la formula:
+2*x + 1 si el nodo era el de la derecha y 2*x si el nodo era el de la izquierda.
+Entonces, lo que necesitaba era que el segundo nodo de la derecha devolviera cero para que la funcion
+en total devuelva 1 (2*0 + 1 = 1). El segundo nodo a la derecha era 50. por lo que
+ese fue mi input.
 
 
 
