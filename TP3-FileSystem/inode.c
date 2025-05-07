@@ -4,6 +4,7 @@
 #include "inode.h"
 #include "diskimg.h"
 
+#define INODES_PER_BLOCK 16
 
 /**
  * TODO
@@ -11,23 +12,21 @@
 int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     //Implement Code Here
     if (inumber < 1) {
-        return -1;  // número de inodo inválido
+        return -1;
     }
 
-    int inodes_per_block = DISKIMG_SECTOR_SIZE / sizeof(struct inode);
-    int inode_block_offset = (inumber - 1) / inodes_per_block;
-    int inode_index_in_block = (inumber - 1) % inodes_per_block;
+    int sector = INODE_START_SECTOR + (inumber - 1) / INODES_PER_BLOCK;
+    int offset = (inumber - 1) % INODES_PER_BLOCK;
 
-    int sector = INODE_START_SECTOR + inode_block_offset;
+    struct inode inodes[INODES_PER_BLOCK];
 
-    struct inode buffer[DISKIMG_SECTOR_SIZE / sizeof(struct inode)];
-
-    if (diskimg_readsector(fs->dfd, buffer, sector) < 0) {
-        return -1;  // error al leer el sector
+    if (diskimg_readsector(fs->dfd, sector, inodes) < 0) {
+        return -1;
     }
 
-    *inp = buffer[inode_index_in_block];
-    return 0;  // éxito
+    *inp = inodes[offset];  // Copiar el inode solicitado
+
+    return 0;
 }
 
 /**
