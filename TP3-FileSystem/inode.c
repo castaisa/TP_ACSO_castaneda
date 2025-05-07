@@ -40,28 +40,36 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
     
         // Casos directos: i_addr[0] a i_addr[5]
         if (blockNum < 6) {
-            return inp->i_addr[blockNum];
+            int direct_block = inp->i_addr[blockNum];
+            if (direct_block == 0) {
+                return -1; // bloque no asignado
+            }
+            return direct_block;
         }
     
-        // Caso indirecto simple
-        if (blockNum < 6 + 128) {
-            int indirect_block = inp->i_addr[6];
-            if (indirect_block == 0) {
-                return -1; // No está asignado
-            }
-    
-            uint16_t block_data[256];  // 512 bytes / 2 bytes = 256 punteros
-    
-            if (diskimg_readsector(fs->dfd, indirect_block, block_data) < 0) {
-                return -1;
-            }
-    
-            int indirect_index = blockNum - 6;
-            return block_data[indirect_index];
+        // Caso indirecto simple: i_addr[6]
+        int indirect_block = inp->i_addr[6];
+        if (indirect_block == 0) {
+            return -1; // bloque indirecto no asignado
         }
     
-        // No soportamos dobles indirectos
-        return -1;
+        int indirect_index = blockNum - 6;
+        if (indirect_index >= 256) {
+            return -1; // fuera del rango de bloque indirecto
+        }
+    
+        uint16_t block_data[256];  // Cada puntero ocupa 2 bytes
+    
+        if (diskimg_readsector(fs->dfd, indirect_block, block_data) < 0) {
+            return -1;
+        }
+    
+        int result = block_data[indirect_index];
+        if (result == 0) {
+            return -1; // bloque indirecto no asignado
+        }
+    
+        return result;
 }
 
 int inode_getsize(struct inode *inp) {
