@@ -37,7 +37,7 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
         if (blockNum < 0) {
             return -1;
         }
-    
+        
         // Casos directos: i_addr[0] a i_addr[5]
         if (blockNum < 6) {
             int direct_block = inp->i_addr[blockNum];
@@ -46,30 +46,65 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
             }
             return direct_block;
         }
-    
+        
         // Caso indirecto simple: i_addr[6]
-        int indirect_block = inp->i_addr[6];
-        if (indirect_block == 0) {
-            return -1; // bloque indirecto no asignado
+        if (blockNum < 6 + 256) {
+            int indirect_block = inp->i_addr[6];
+            if (indirect_block == 0) {
+                return -1; // bloque indirecto no asignado
+            }
+            
+            int indirect_index = blockNum - 6;
+            uint16_t block_data[256];
+            
+            if (diskimg_readsector(fs->dfd, indirect_block, block_data) < 0) {
+                return -1;
+            }
+            
+            int result = block_data[indirect_index];
+            if (result == 0) {
+                return -1; // bloque indirecto no asignado
+            }
+            
+            return result;
         }
-    
-        int indirect_index = blockNum - 6;
-        if (indirect_index >= 256) {
-            return -1; // fuera del rango de bloque indirecto
+        
+        // Caso indirecto doble: i_addr[7]
+        if (blockNum < 6 + 256 + 256*256) {
+            int double_indirect_block = inp->i_addr[7];
+            if (double_indirect_block == 0) {
+                return -1; // bloque indirecto doble no asignado
+            }
+            
+            int offset = blockNum - (6 + 256);
+            int first_index = offset / 256;  // Índice en el primer nivel
+            int second_index = offset % 256; // Índice en el segundo nivel
+            
+            uint16_t first_level[256];
+            if (diskimg_readsector(fs->dfd, double_indirect_block, first_level) < 0) {
+                return -1;
+            }
+            
+            int second_level_block = first_level[first_index];
+            if (second_level_block == 0) {
+                return -1; // bloque de segundo nivel no asignado
+            }
+            
+            uint16_t second_level[256];
+            if (diskimg_readsector(fs->dfd, second_level_block, second_level) < 0) {
+                return -1;
+            }
+            
+            int result = second_level[second_index];
+            if (result == 0) {
+                return -1; // bloque final no asignado
+            }
+            
+            return result;
         }
-    
-        uint16_t block_data[256];  // Cada puntero ocupa 2 bytes
-    
-        if (diskimg_readsector(fs->dfd, indirect_block, block_data) < 0) {
-            return -1;
-        }
-    
-        int result = block_data[indirect_index];
-        if (result == 0) {
-            return -1; // bloque indirecto no asignado
-        }
-    
-        return result;
+        
+        // Fuera de rango
+        return -1;
 }
 
 int inode_getsize(struct inode *inp) {
