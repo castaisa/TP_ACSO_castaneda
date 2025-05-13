@@ -12,7 +12,7 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
     
     struct inode in;
     if (inode_iget(fs, inumber, &in) < 0) {
-        fprintf(stderr, "file_getblock: error al obtener el inodo %d\n", inumber);
+        // fprintf(stderr, "file_getblock: error al obtener el inodo %d\n", inumber);
         return -1;
     }
     
@@ -44,7 +44,7 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
     
     // Leer el sector del disco
     if (diskimg_readsector(fs->dfd, diskBlockNum, buf) < 0) {
-        fprintf(stderr, "file_getblock: error al leer el sector %d del disco\n", diskBlockNum);
+        // fprintf(stderr, "file_getblock: error al leer el sector %d del disco\n", diskBlockNum);
         return -1;
     }
     
