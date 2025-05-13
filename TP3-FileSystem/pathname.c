@@ -37,3 +37,4 @@ int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
             return -1; // No es un directorio
     }
 }
+}
