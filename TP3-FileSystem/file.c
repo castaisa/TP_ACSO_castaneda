@@ -4,6 +4,8 @@
 #include "file.h"
 #include "inode.h"
 #include "diskimg.h"
+#include <string.h> // la puse yo
+#include "diskimg.h" //tambien la puse yo
 
 /**
  * TODO
