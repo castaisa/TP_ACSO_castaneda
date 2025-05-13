@@ -15,51 +15,82 @@ int directory_findname(struct unixfilesystem *fs, const char *name,
     
     // Obtener el inodo del directorio
     if (inode_iget(fs, dirinumber, &dirInode) < 0) {
-        return -1;  // Error al obtener el inodo del directorio
+        return -1;
     }
     
     // Verificar que es un directorio
     if ((dirInode.i_mode & IFMT) != IFDIR) {
-        return -1;  // No es un directorio
+        return -1;
     }
     
     // Obtener el tamaño del directorio
     int dirSize = inode_getsize(&dirInode);
-    
-    // Verificar que el directorio tenga bloques
-    int numBlocks = (dirSize + DISKIMG_SECTOR_SIZE - 1) / DISKIMG_SECTOR_SIZE;
-    
-    // Calcular la longitud del nombre a buscar (máximo 14 caracteres)
-    int name_len = strlen(name);
-    if (name_len > 14) {
-        name_len = 14;  // Limitar a 14 caracteres para Unix V6
+    if (dirSize <= 0 || dirSize % sizeof(struct direntv6) != 0) {
+        return -1; // Tamaño de directorio inválido
     }
     
-    for (int blockNum = 0; blockNum < numBlocks; blockNum++) {
+    // Calcular cuántas entradas de directorio hay en total
+    int numEntries = dirSize / sizeof(struct direntv6);
+    int entriesPerBlock = DISKIMG_SECTOR_SIZE / sizeof(struct direntv6);
+    
+    // Número de bloques necesarios para leer todo el directorio
+    int numBlocks = (numEntries + entriesPerBlock - 1) / entriesPerBlock;
+    
+    // Preparar el nombre para comparación
+    int nameLen = strlen(name);
+    
+    // Iterar por cada bloque del directorio
+    for (int block = 0; block < numBlocks; block++) {
         char buf[DISKIMG_SECTOR_SIZE];
         
-        // Obtener el bloque correspondiente
-        int bytesRead = file_getblock(fs, dirinumber, blockNum, buf);
-        if (bytesRead <= 0) {
-            continue;  // Error al leer el bloque o bloque vacío
+        // Leer un bloque del directorio
+        int bytesRead = file_getblock(fs, dirinumber, block, buf);
+        if (bytesRead < 0) {
+            return -1;
         }
         
-        // Procesar las entradas del directorio en el bloque
-        struct direntv6 *entries = (struct direntv6 *)buf;
+        // Determinar cuántas entradas contiene este bloque
         int entriesInBlock = bytesRead / sizeof(struct direntv6);
+        struct direntv6 *entries = (struct direntv6 *)buf;
         
+        // Examinar cada entrada en el bloque
         for (int i = 0; i < entriesInBlock; i++) {
-            // Comparar el nombre con el de la entrada de directorio
-            // En Unix V6, los nombres de archivo pueden no estar terminados en nulo
-            if (entries[i].d_inumber != 0 && strncmp(entries[i].d_name, name, name_len) == 0 &&
-                (name_len == 14 || entries[i].d_name[name_len] == '\0')) {
-                // Si encontramos la entrada, copiamos la entrada encontrada
+            // Ignorar entradas con inodo 0 (no asignadas o eliminadas)
+            if (entries[i].d_inumber == 0) {
+                continue;
+            }
+            
+            // Comparar los nombres
+            // En Unix V6, los nombres de archivo son de un máximo de 14 caracteres
+            // y pueden no terminar con un carácter nulo
+            int match = 1;
+            
+            // Comparar hasta la longitud del nombre de búsqueda o hasta 14 caracteres
+            for (int j = 0; j < nameLen && j < 14; j++) {
+                if (name[j] != entries[i].d_name[j]) {
+                    match = 0;
+                    break;
+                }
+            }
+            
+            // Para nombres más cortos que 14, comprobar que el resto son nulos o el nombre termina
+            if (match && nameLen < 14) {
+                for (int j = nameLen; j < 14; j++) {
+                    if (entries[i].d_name[j] != '\0') {
+                        match = 0;
+                        break;
+                    }
+                }
+            }
+            
+            if (match) {
+                // Encontramos una coincidencia, copiar la entrada al resultado
                 *dirEnt = entries[i];
-                return 0;  // Se encontró el archivo/directorio
+                return 0;
             }
         }
     }
     
-    // Si no se encontró el nombre en ninguna entrada
+    // No se encontró el nombre
     return -1;
 }

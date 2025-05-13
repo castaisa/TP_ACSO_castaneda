@@ -12,7 +12,6 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
     
     struct inode in;
     if (inode_iget(fs, inumber, &in) < 0) {
-        // fprintf(stderr, "file_getblock: error al obtener el inodo %d\n", inumber);
         return -1;
     }
     
@@ -24,35 +23,26 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
         return 0; // no hay más datos en este bloque
     }
     
+    // Calcular cuántos bytes devolver para este bloque
+    int bytesToReturn = DISKIMG_SECTOR_SIZE;
+    if (startByte + bytesToReturn > fileSize) {
+        bytesToReturn = fileSize - startByte;
+    }
+    
     // Obtener el número de bloque físico correspondiente
     int diskBlockNum = inode_indexlookup(fs, &in, blockNum);
-    if (diskBlockNum < 0) {
-        // Para algunos casos, podemos devolver un bloque de ceros en lugar de error
-        if (blockNum * DISKIMG_SECTOR_SIZE < fileSize) {
-            // Este es un bloque "sparse" dentro del rango del archivo
-            memset(buf, 0, DISKIMG_SECTOR_SIZE);
-            
-            // Determinar cuántos bytes devolver
-            if (fileSize - startByte > DISKIMG_SECTOR_SIZE) {
-                return DISKIMG_SECTOR_SIZE;
-            } else {
-                return fileSize - startByte;
-            }
-        }
-        return -1;
+    
+    // Si es un bloque no asignado dentro del rango del archivo (sparse file)
+    if (diskBlockNum <= 0) {
+        memset(buf, 0, bytesToReturn);
+        return bytesToReturn;
     }
     
     // Leer el sector del disco
     if (diskimg_readsector(fs->dfd, diskBlockNum, buf) < 0) {
-        // fprintf(stderr, "file_getblock: error al leer el sector %d del disco\n", diskBlockNum);
         return -1;
     }
     
-    // Determinar cuántos bytes devolver
-    if (fileSize - startByte > DISKIMG_SECTOR_SIZE) {
-        return DISKIMG_SECTOR_SIZE;
-    } else {
-        return fileSize - startByte;
-    }
+    return bytesToReturn;
 }
 
