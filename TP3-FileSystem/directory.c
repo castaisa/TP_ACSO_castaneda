@@ -12,29 +12,29 @@
  */
 int directory_findname(struct unixfilesystem *fs, const char *name,
 		int dirinumber, struct direntv6 *dirEnt) {
-      struct inode dirInode;
+    struct inode dirInode;
     
-     // Obtener el inodo del directorio y verificar que es un directorio
-     if (inode_iget(fs, dirinumber, &dirInode) < 0 || ((dirInode.i_mode & IFMT) != IFDIR)) {
+    // Obtener el inodo del directorio y verificar que es un directorio
+    if (inode_iget(fs, dirinumber, &dirInode) < 0 || ((dirInode.i_mode & IFMT) != IFDIR)) {
       return -1;
   }
   
   // Obtener el tamaño del directorio
-  int dirSize = inode_getsize(&dirInode);
-  if (dirSize <= 0 || dirSize % sizeof(struct direntv6) != 0) {
+  int tamano_dir = inode_getsize(&dirInode);
+  if (tamano_dir <= 0 || tamano_dir % sizeof(struct direntv6) != 0) {
       return -1;
   }
   
   // Preparar el nombre para comparación (máximo 14 caracteres)
-  char searchName[15]; // 14 caracteres + nulo
-  memset(searchName, 0, sizeof(searchName));
-  strncpy(searchName, name, 14);
+  char copia_name[15]; // 14 caracteres + nulo
+  memset(copia_name, 0, sizeof(copia_name));
+  strncpy(copia_name, name, 14);
   
   // Procesar el directorio bloque por bloque
-  int bytesProcessed = 0;
+  int bytes_procesados = 0;
   int blockNum = 0;
   
-  while (bytesProcessed < dirSize) {
+  while (bytes_procesados < tamano_dir) {
       char buf[DISKIMG_SECTOR_SIZE];
       int bytesRead = file_getblock(fs, dirinumber, blockNum, buf);
       if (bytesRead <= 0) break;
@@ -51,13 +51,13 @@ int directory_findname(struct unixfilesystem *fs, const char *name,
           memset(entryName, 0, sizeof(entryName));
           memcpy(entryName, entries[i].d_name, 14);
           
-          if (strcmp(searchName, entryName) == 0) {
+          if (strcmp(copia_name, entryName) == 0) {
               *dirEnt = entries[i];
               return 0; // Encontrado
           }
       }
       
-      bytesProcessed += bytesRead;
+      bytes_procesados += bytesRead;
       blockNum++;
   }
   

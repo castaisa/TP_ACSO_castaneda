@@ -4,14 +4,14 @@
 #include "inode.h"
 #include "diskimg.h"
 
-#define INODES_PER_BLOCK 16
+#define INODES_PER_BLOCK 16 // diskim secor size / sizeof (struct inode)
 
 /**
  * TODO
  */
 int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
     //Implement Code Here
-    if (inumber < 1) {
+    if (inumber < 1 || inp == NULL || fs == NULL) {
         return -1;
     }
 

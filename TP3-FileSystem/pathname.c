@@ -11,10 +11,10 @@
  * TODO
  */
 int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
-    if (pathname == NULL || pathname[0] == '\0') {
+    if (pathname == NULL || fs == NULL || pathname[0] != '/') {
         return -1;
     }
-    
+    // chequear si es menos a dos
     int inumber = ROOT_INUMBER;  // inodo raíz = 1
     
     // Si es solo "/", ya está
@@ -23,7 +23,7 @@ int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
     }
     
     // Copiar la ruta para tokenizarla
-    char path[1024];
+    char path[strlen(pathname) + 1]; 
     strncpy(path, pathname, sizeof(path));
     path[sizeof(path) - 1] = '\0';
     
@@ -44,6 +44,12 @@ int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
         
         // Buscar el nombre del token en el directorio actual
         struct direntv6 dirEnt;
+
+        //veo que no exceda los 14 
+        if (strlen(token) > 14) { // 14 es el tamaño máximo del nombre
+            return -1;  // Nombre demasiado largo
+        }
+
         if (directory_findname(fs, token, inumber, &dirEnt) < 0) {
             return -1;  // No se encontró el nombre
         }
