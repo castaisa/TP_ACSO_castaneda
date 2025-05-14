@@ -11,24 +11,49 @@
  * TODO
  */
 int pathname_lookup(struct unixfilesystem *fs, const char *pathname) {
-    char *path = strdup(pathname);
-    if (path == NULL) {
-        return -1; // Error al duplicar la cadena
+    if (pathname == NULL || pathname[0] == '\0') {
+        return -1;
     }
-
-    char *token = strtok(path, "/");
-    int inumber = 1; // Inodo raíz
-
+    
+    int inumber = ROOT_INUMBER;  // inodo raíz = 1
+    
+    // Si es solo "/", ya está
+    if (strcmp(pathname, "/") == 0) {
+        return inumber;
+    }
+    
+    // Copiar la ruta para tokenizarla
+    char path[1024];
+    strncpy(path, pathname, sizeof(path));
+    path[sizeof(path) - 1] = '\0';
+    
+    // Procesar tokens de la ruta (segmentos separados por "/")
+    char *saveptr;
+    char *token = strtok_r(path, "/", &saveptr);
+    
     while (token != NULL) {
+        struct inode in;
+        if (inode_iget(fs, inumber, &in) < 0) {
+            return -1;
+        }
+        
+        // Verificar que el inodo actual sea un directorio
+        if ((in.i_mode & IFMT) != IFDIR) {
+            return -1;  // No es un directorio
+        }
+        
+        // Buscar el nombre del token en el directorio actual
         struct direntv6 dirEnt;
         if (directory_findname(fs, token, inumber, &dirEnt) < 0) {
-            free(path);
-            return -1; // Error al buscar el nombre en el directorio
+            return -1;  // No se encontró el nombre
         }
+        
+        // Actualizar el inumber para el siguiente nivel
         inumber = dirEnt.d_inumber;
-        token = strtok(NULL, "/");
+        
+        // Obtener el siguiente token
+        token = strtok_r(NULL, "/", &saveptr);
     }
-
-    free(path);
-    return inumber; // Retorna el número de inodo encontrado
+    
+    return inumber;
 }
