@@ -8,29 +8,31 @@
 
 
 /**
- * TODO
+ *Busca una entrada en un directorio espesifico fijandose que coincida con 
+ * el nombre que le pasan como parametro.
+ * Devuelve 0 si la entrada se copio correctamente en dirEnt
+ * y -1 si hubo algun error.
  */
 int directory_findname(struct unixfilesystem *fs, const char *name,
 		int dirinumber, struct direntv6 *dirEnt) {
     struct inode dirInode;
     
-    // Obtener el inodo del directorio y verificar que es un directorio
+    //Obtiene el inode del directorio y se fija que sea un directorio
     if (inode_iget(fs, dirinumber, &dirInode) < 0 || ((dirInode.i_mode & IFMT) != IFDIR)) {
       return -1;
   }
   
-  // Obtener el tamaño del directorio
   int tamano_dir = inode_getsize(&dirInode);
   if (tamano_dir <= 0 || tamano_dir % sizeof(struct direntv6) != 0) {
       return -1;
   }
   
-  // Preparar el nombre para comparación (máximo 14 caracteres)
+  //Prepara el nombre para ser comparado
   char copia_name[15]; // 14 caracteres + nulo
   memset(copia_name, 0, sizeof(copia_name));
   strncpy(copia_name, name, 14);
   
-  // Procesar el directorio bloque por bloque
+  //Itera por los bloques del directorio
   int bytes_procesados = 0;
   int blockNum = 0;
   
@@ -39,21 +41,22 @@ int directory_findname(struct unixfilesystem *fs, const char *name,
       int bytesRead = file_getblock(fs, dirinumber, blockNum, buf);
       if (bytesRead <= 0) break;
       
-      // Examinar cada entrada en este bloque
       struct direntv6 *entries = (struct direntv6 *)buf;
       int numEntries = bytesRead / sizeof(struct direntv6);
       
+      
       for (int i = 0; i < numEntries; i++) {
-          if (entries[i].d_inumber == 0) continue; // Entrada vacía
+          if (entries[i].d_inumber == 0) continue;
           
-          // Comparar nombres - en Unix v6 no necesariamente terminan en nulo
+          //Compara los nombres
           char entryName[15];
           memset(entryName, 0, sizeof(entryName));
           memcpy(entryName, entries[i].d_name, 14);
           
           if (strcmp(copia_name, entryName) == 0) {
               *dirEnt = entries[i];
-              return 0; // Encontrado
+              //Lo encontro
+              return 0;
           }
       }
       
@@ -61,5 +64,5 @@ int directory_findname(struct unixfilesystem *fs, const char *name,
       blockNum++;
   }
   
-  return -1; // No encontrado
+  return -1;//No lo encontro
 }

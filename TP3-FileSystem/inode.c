@@ -4,13 +4,14 @@
 #include "inode.h"
 #include "diskimg.h"
 
-//#define INODES_PER_BLOCK 16 // diskim secor size / sizeof (struct inode)
+PUNTEROS_POR_BLOQUE = DISKIMG_SECTOR_SIZE / sizeof(uint16_t); 
 
 /**
- * TODO
+ * Lee un inode del disco y lo carga en memoria.
+ * Lo obtiene con su inumber, extrae el inode y lo copia en la estructura destino (inp).
  */
 int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
-    //Implement Code Here
+    //Chequeo casos borde y retorno -1 si los hay
     if (inumber < 1 || inp == NULL || fs == NULL) {
         return -1;
     }
@@ -25,13 +26,16 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
         return -1;
     }
 
-    *inp = inodes[offset];  // Copiar el inode solicitado
+    *inp = inodes[offset];
 
     return 0;
 }
 
 /**
- * TODO
+ * Traduce un número de bloque lógico de un archivo al número de sector 
+ * físico donde se almacena ese bloque de datos.
+ * Diferencia entre los archivos grandes (que tienen 7 bloques indirectos y uno doblemente indirecto) 
+ * y los normales (hasta 8 bloques directos).
  */
 int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
     int blockNum) {  
@@ -39,84 +43,86 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
             return -1;
         }
         
-        // Determinar si es un archivo grande (large file)
-        int is_large_file = (inp->i_mode & ILARG);
+        //Ver si es un archivo grande (large file)
+        int es_largo = (inp->i_mode & ILARG);
         
-        if (!is_large_file) {
-            // Archivo normal: todos los bloques son directos
-            if (blockNum < 8) {  // Unix v6 tiene 8 entradas en i_addr para bloques directos
+        if (!es_largo) {
+            //Caso donde el archivo es normal (no es grande)
+            if (blockNum < 8) {
                 int direct_block = inp->i_addr[blockNum];
                 if (direct_block == 0) {
-                    return -1; // bloque no asignado
+                    return -1;
                 }
                 return direct_block;
             }
-            return -1; // Fuera de rango para archivo normal
+            // Fuera de rango
+            return -1;
         } else {
-            // Archivo grande (ILARG): 7 indirectos + 1 doblemente indirecto
-            
-            // Caso indirecto simple: i_addr[0] a i_addr[6]
-            if (blockNum < 7 * 256) {  // 7 bloques indirectos × 256 entradas por bloque
-                int indirect_index = blockNum / 256;  // Determina cuál de los 7 bloques indirectos
-                int block_offset = blockNum % 256;    // Índice dentro del bloque indirecto
+            //Caso donde el archivo es grande (ILARG): 7 indirectos y uno doblemente indirecto
+            if (blockNum < 7 * PUNTEROS_POR_BLOQUE) {  
+                //Caso indirecto simple: i_addr[0] a i_addr[6] (7 bloques de 256 punteros)
+
+                int indirect_index = blockNum / PUNTEROS_POR_BLOQUE; 
+                int block_offset = blockNum % PUNTEROS_POR_BLOQUE;
                 
                 if (indirect_index >= 7) {
-                    return -1; // Fuera de rango para los bloques indirectos
+                    return -1;
                 }
                 
                 int indirect_block = inp->i_addr[indirect_index];
                 if (indirect_block == 0) {
-                    return -1; // Bloque indirecto no asignado
+                    return -1;
                 }
                 
-                uint16_t block_data[256];
+                uint16_t block_data[PUNTEROS_POR_BLOQUE];
                 if (diskimg_readsector(fs->dfd, indirect_block, block_data) < 0) {
                     return -1;
                 }
                 
                 int result = block_data[block_offset];
                 if (result == 0) {
-                    return -1; // Bloque no asignado
+                    return -1;
                 }
                 
                 return result;
             }
             
-            // Caso indirecto doble: i_addr[7]
-            if (blockNum < 7 * 256 + 256 * 256) {  // 7 bloques indirectos + 1 doblemente indirecto
-                int offset = blockNum - (7 * 256);
-                int first_index = offset / 256;    // Índice en el primer nivel
-                int second_index = offset % 256;   // Índice en el segundo nivel
+            //Caso indirecto doble: i_addr[7]
+            if (blockNum < 7 * PUNTEROS_POR_BLOQUE + 256 * PUNTEROS_POR_BLOQUE) {
+                // 7 bloques indirectos + 1 doblemente indirecto
+                int offset = blockNum - (7 * PUNTEROS_POR_BLOQUE);
+                int first_index = offset / PUNTEROS_POR_BLOQUE;
+                int second_index = offset % PUNTEROS_POR_BLOQUE;
                 
                 int double_indirect_block = inp->i_addr[7];
                 if (double_indirect_block == 0) {
-                    return -1; // Bloque indirecto doble no asignado
+                    return -1;
                 }
                 
-                uint16_t first_level[256];
+                uint16_t first_level[PUNTEROS_POR_BLOQUE];
                 if (diskimg_readsector(fs->dfd, double_indirect_block, first_level) < 0) {
                     return -1;
                 }
                 
                 int second_level_block = first_level[first_index];
                 if (second_level_block == 0) {
-                    return -1; // Bloque de segundo nivel no asignado
+                    return -1;
                 }
                 
-                uint16_t second_level[256];
+                uint16_t second_level[PUNTEROS_POR_BLOQUE];;
                 if (diskimg_readsector(fs->dfd, second_level_block, second_level) < 0) {
                     return -1;
                 }
                 
                 int result = second_level[second_index];
                 if (result == 0) {
-                    return -1; // Bloque final no asignado
+                    return -1;
                 }
                 
                 return result;
             }
             
-            // Fuera de rango
+            //Fuera de rango
             return -1;
         }
 }
