@@ -35,6 +35,7 @@ int inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp) {
 int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
     int blockNum) {  
         if (blockNum < 0) {
+            
             return -1;
         }
         
@@ -42,6 +43,7 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
         if (blockNum < 6) {
             int direct_block = inp->i_addr[blockNum];
             if (direct_block == 0) {
+                
                 return -1; // bloque no asignado
             }
             return direct_block;
@@ -79,6 +81,10 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp,
             int offset = blockNum - (6 + 256);
             int first_index = offset / 256;  // Índice en el primer nivel
             int second_index = offset % 256; // Índice en el segundo nivel
+            
+            if (first_index >= 256 || second_index >= 256) {
+                return -1; // índice fuera de rango para bloque doble indirecto
+            }
             
             uint16_t first_level[256];
             if (diskimg_readsector(fs->dfd, double_indirect_block, first_level) < 0) {

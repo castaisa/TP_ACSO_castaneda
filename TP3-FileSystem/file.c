@@ -44,6 +44,10 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
     if (diskimg_readsector(fs->dfd, diskBlockNum, buf) < 0) {
         return -1;
     }
+
+    fprintf(stderr, "[DBG] inumber %d, blockNum %d, fileSize %d, startByte %d, bytesToReturn %d, diskBlockNum %d\n",
+        inumber, blockNum, fileSize, startByte, bytesToReturn, diskBlockNum);
+
     
     return bytesToReturn;
 }
