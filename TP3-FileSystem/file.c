@@ -45,9 +45,6 @@ int file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *bu
         return -1;
     }
 
-    fprintf(stderr, "[DBG] inumber %d, blockNum %d, fileSize %d, startByte %d, bytesToReturn %d, diskBlockNum %d\n",
-        inumber, blockNum, fileSize, startByte, bytesToReturn, diskBlockNum);
-
     
     return bytesToReturn;
 }
