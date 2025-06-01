@@ -154,7 +154,6 @@ int main() {
     char *commands[MAX_COMMANDS];
     int command_count = 0;
 
-    printf("Shell iniciado (máximo %d caracteres por comando)\n", MAX_COMMAND_LENGTH - 1);
 
     while (1) 
     {
@@ -162,7 +161,6 @@ int main() {
         command_count = 0;
         
         // Leer línea de comandos del usuario
-        printf("mishell> ");
         fflush(stdout);
         
         if (!fgets(command, sizeof(command), stdin)) {
