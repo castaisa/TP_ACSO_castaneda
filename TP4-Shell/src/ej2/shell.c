@@ -7,7 +7,7 @@
 
 #define MAX_COMMANDS 200
 #define MAX_ARGS 65
-#define MAX_COMMAND_LENGTH 8192  // Aumentado de 1024 a 8192 (8KB)
+#define MAX_COMMAND_LENGTH 1024  // Aumentado de 1024 a 8192 (8KB)
 
 // Función para parsear argumentos respetando comillas simples y dobles
 int parse_arguments(char *command_str, char *args[]) {
@@ -255,20 +255,10 @@ int main() {
             char *args[MAX_ARGS];
             int arg_count = 0;
             
-            // CORREGIR: Usar buffer más grande y verificar longitud
-            char command_copy[MAX_COMMAND_LENGTH];  // Cambiar de 1024 a MAX_COMMAND_LENGTH
-            
-            // Verificar que el comando no sea demasiado largo
-            int cmd_len = strlen(commands[i]);
-            if (cmd_len >= MAX_COMMAND_LENGTH) {
-                fprintf(stderr, "Error: Comando %d demasiado largo (%d chars)\n", i, cmd_len);
-                command_error = 1;
-                break;
-            }
-            
-            // Copiar de forma segura
-            strncpy(command_copy, commands[i], MAX_COMMAND_LENGTH - 1);
-            command_copy[MAX_COMMAND_LENGTH - 1] = '\0';
+            // Crear copia del comando para no modificar el original
+            char command_copy[1024];  // Buffer más pequeño para cada comando individual
+            strncpy(command_copy, commands[i], sizeof(command_copy) - 1);
+            command_copy[sizeof(command_copy) - 1] = '\0';
             
             // Parsear argumentos con manejo de comillas
             arg_count = parse_arguments(command_copy, args);
