@@ -151,7 +151,7 @@ int parse_pipeline(char *command, char *commands[], int max_commands) {
 }
 
 int main() {
-    char command[1024];  // Aumentado para comandos más largos
+    char command[2048];  // Aumentado para comandos más largos
     char *commands[MAX_COMMANDS];
     int command_count = 0;
 
