@@ -3,12 +3,155 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
 
 #define MAX_COMMANDS 200
-#define MAX_ARGS 50  // Máximo número de argumentos por comando
+#define MAX_ARGS 65
+
+// Función para parsear argumentos respetando comillas simples y dobles
+// Retorna -1 si excede MAX_ARGS, o el número de argumentos parseados
+int parse_arguments(char *command_str, char *args[]) {
+    int arg_count = 0;
+    char *ptr = command_str;
+    
+    while (*ptr && arg_count < MAX_ARGS - 1) {
+        // Saltar espacios en blanco
+        while (*ptr == ' ' || *ptr == '\t') ptr++;
+        
+        if (*ptr == '\0') break;
+        
+        char *arg_start = ptr;
+        char quote_char = '\0';
+        
+        // Detectar si empieza con comilla (simple o doble)
+        if (*ptr == '"' || *ptr == '\'') {
+            quote_char = *ptr;
+            ptr++; // Saltar la comilla de apertura
+            arg_start = ptr; // El argumento empieza después de la comilla
+            
+            // Buscar la comilla de cierre del mismo tipo
+            while (*ptr && *ptr != quote_char) {
+                ptr++;
+            }
+            
+            if (*ptr == quote_char) {
+                *ptr = '\0'; // Terminar la cadena en la comilla de cierre
+                ptr++; // Avanzar después de la comilla
+            } else {
+                // Comilla no cerrada - tratarla como texto normal
+                ptr = arg_start - 1; // Volver al inicio incluyendo la comilla
+                goto parse_normal;
+            }
+        } else {
+            parse_normal:
+            // Argumento normal, buscar el siguiente espacio
+            while (*ptr && *ptr != ' ' && *ptr != '\t') {
+                ptr++;
+            }
+            
+            if (*ptr) {
+                *ptr = '\0';
+                ptr++;
+            }
+        }
+        
+        args[arg_count++] = arg_start;
+    }
+    
+    // Verificar si hay más argumentos después del límite
+    while (*ptr == ' ' || *ptr == '\t') ptr++;
+    if (*ptr != '\0') {
+        // Hay más argumentos, se excedió el límite
+        return -1;
+    }
+    
+    args[arg_count] = NULL;
+    return arg_count;
+}
+
+// Función mejorada para separar comandos por pipes respetando comillas
+int parse_pipeline(char *command, char *commands[], int max_commands) {
+    int command_count = 0;
+    char *start = command;
+    char *ptr = command;
+    
+    while (*ptr && command_count < max_commands) {
+        // Si encontramos una comilla, saltarla completamente
+        if (*ptr == '"' || *ptr == '\'') {
+            char quote_char = *ptr;
+            ptr++; // Saltar comilla de apertura
+            
+            // Buscar comilla de cierre
+            while (*ptr && *ptr != quote_char) {
+                ptr++;
+            }
+            
+            if (*ptr == quote_char) {
+                ptr++; // Saltar comilla de cierre
+            }
+            continue;
+        }
+        
+        // Si encontramos un pipe fuera de comillas
+        if (*ptr == '|') {
+            // Terminar el comando actual
+            *ptr = '\0';
+            
+            // Limpiar espacios del comando
+            char *cmd_start = start;
+            while (*cmd_start == ' ' || *cmd_start == '\t') cmd_start++;
+            
+            char *cmd_end = ptr - 1;
+            while (cmd_end > cmd_start && (*cmd_end == ' ' || *cmd_end == '\t')) {
+                *cmd_end = '\0';
+                cmd_end--;
+            }
+            
+            // Verificar que el comando no esté vacío
+            if (strlen(cmd_start) == 0) {
+                fprintf(stderr, "Error: Comando vacío en pipeline\n");
+                return -1;
+            }
+            
+            commands[command_count++] = cmd_start;
+            
+            // Avanzar al siguiente comando
+            ptr++;
+            start = ptr;
+            continue;
+        }
+        
+        ptr++;
+    }
+    
+    // Procesar el último comando
+    if (*start) {
+        // Limpiar espacios del último comando
+        char *cmd_start = start;
+        while (*cmd_start == ' ' || *cmd_start == '\t') cmd_start++;
+        
+        char *cmd_end = start + strlen(start) - 1;
+        while (cmd_end > cmd_start && (*cmd_end == ' ' || *cmd_end == '\t')) {
+            *cmd_end = '\0';
+            cmd_end--;
+        }
+        
+        if (strlen(cmd_start) > 0) {
+            commands[command_count++] = cmd_start;
+        }
+    }
+    
+    // Verificar si se excedió el límite de comandos
+    if (command_count >= max_commands && *ptr) {
+        fprintf(stderr, "Error: Pipeline excede el límite máximo de %d comandos\n", max_commands);
+        return -1;
+    }
+    
+    return command_count;
+}
 
 int main() {
-    char command[256];
+    char command[1024];  // Aumentado para comandos más largos
     char *commands[MAX_COMMANDS];
     int command_count = 0;
 
@@ -17,10 +160,10 @@ int main() {
         // RESETEAR PARA CADA LÍNEA
         command_count = 0;
         
-        //printf("Shell> ");
-        
         // Leer línea de comandos del usuario
-        fgets(command, sizeof(command), stdin);
+        if (!fgets(command, sizeof(command), stdin)) {
+            break; // EOF
+        }
         
         // Remover el salto de línea
         command[strcspn(command, "\n")] = '\0';
@@ -32,108 +175,134 @@ int main() {
         
         // Comando 'exit' para salir del shell
         if (strcmp(command, "exit") == 0) {
-            //printf("Saliendo del shell...\n");
             break;
         }
 
-        // PASO 1: TOKENIZAR POR PIPES
-        // Separar comandos por el carácter '|'
-        char *token = strtok(command, "|");
-        while (token != NULL && command_count < MAX_COMMANDS) 
-        {
-            // Eliminar espacios al inicio y final de cada comando
-            while (*token == ' ' || *token == '\t') token++;  // Eliminar espacios al inicio
-            
-            char *end = token + strlen(token) - 1;
-            while (end > token && (*end == ' ' || *end == '\t')) *end-- = '\0';  // Eliminar espacios al final
-            
-            commands[command_count++] = token;
-            token = strtok(NULL, "|");
+        // VALIDACIÓN: Verificar pipes mal formados
+        // Verificar pipe al inicio
+        if (command[0] == '|') {
+            fprintf(stderr, "zsh: parse error near `|'\n");
+            continue;
         }
         
-        if (command_count == 0) {
-            continue;  // No hay comandos válidos
+        // Verificar pipe al final
+        int len = strlen(command);
+        if (len > 0 && command[len-1] == '|') {
+            fprintf(stderr, "Error: Pipe al final del comando\n");
+            continue;
         }
         
-        //printf("DEBUG - Total comandos encontrados: %d\n", command_count);
-        for (int i = 0; i < command_count; i++) {
-            //printf("DEBUG - Comando %d: '%s'\n", i, commands[i]);
+        // Verificar pipes dobles (fuera de comillas)
+        char *check_ptr = command;
+        int found_double_pipe = 0;
+        while (*check_ptr) {
+            if (*check_ptr == '"' || *check_ptr == '\'') {
+                char quote_char = *check_ptr;
+                check_ptr++;
+                while (*check_ptr && *check_ptr != quote_char) check_ptr++;
+                if (*check_ptr) check_ptr++;
+            } else if (*check_ptr == '|' && *(check_ptr + 1) == '|') {
+                found_double_pipe = 1;
+                break;
+            } else {
+                check_ptr++;
+            }
+        }
+        
+        if (found_double_pipe) {
+            fprintf(stderr, "Error: Pipes dobles no permitidos\n");
+            continue;
         }
 
-        // PASO 3: CREAR LOS PIPES NECESARIOS
-        int num_pipes = command_count - 1;  // N comandos = N-1 pipes
+        // PASO 1: PARSING MEJORADO DE PIPELINE
+        command_count = parse_pipeline(command, commands, MAX_COMMANDS);
+        
+        if (command_count <= 0) {
+            continue;  // Error en parsing o no hay comandos válidos
+        }
+        
+        // Debug: mostrar comandos parseados
+        /*
+        printf("DEBUG - Total comandos encontrados: %d\n", command_count);
+        for (int i = 0; i < command_count; i++) {
+            printf("DEBUG - Comando %d: '%s'\n", i, commands[i]);
+        }
+        */
+
+        // PASO 2: CREAR LOS PIPES NECESARIOS
+        int num_pipes = command_count - 1;
         int pipes[MAX_COMMANDS-1][2];
         
-        // Crear todos los pipes necesarios
         for (int i = 0; i < num_pipes; i++) {
             if (pipe(pipes[i]) == -1) {
                 perror("Error creando pipe");
-                continue;  // Continuar con el siguiente comando
+                goto cleanup_and_continue;
             }
-            //printf("DEBUG - Pipe %d creado: lectura=%d, escritura=%d\n", 
-                   //i, pipes[i][0], pipes[i][1]);
         }
-        
-        //printf("DEBUG - Total pipes creados: %d\n", num_pipes);
 
-        // PASO 4: CREAR PROCESOS Y CONFIGURAR REDIRECCIONES
+        // PASO 3: CREAR PROCESOS Y CONFIGURAR REDIRECCIONES
         pid_t pids[MAX_COMMANDS];
+        int pids_count = 0;
+        int command_error = 0;
         
         for (int i = 0; i < command_count; i++) 
         {
-            // PASO 2: PARSING DE ARGUMENTOS PARA CADA COMANDO
+            // PARSING DE ARGUMENTOS PARA CADA COMANDO
             char *args[MAX_ARGS];
             int arg_count = 0;
             
             // Crear copia del comando para no modificar el original
-            char command_copy[256];
-            strcpy(command_copy, commands[i]);
+            char command_copy[512];
+            strncpy(command_copy, commands[i], sizeof(command_copy) - 1);
+            command_copy[sizeof(command_copy) - 1] = '\0';
             
-            // Parsear argumentos separando por espacios
-            char *arg = strtok(command_copy, " \t");
-            while (arg != NULL && arg_count < MAX_ARGS - 1) 
-            {
-                args[arg_count++] = arg;
-                arg = strtok(NULL, " \t");
+            // Parsear argumentos con manejo de comillas
+            arg_count = parse_arguments(command_copy, args);
+            
+            if (arg_count == -1) {
+                fprintf(stderr, "Error: El comando '%s' excede el límite máximo de %d argumentos\n", 
+                        commands[i], MAX_ARGS - 1);
+                command_error = 1;
+                break;
             }
-            args[arg_count] = NULL;  // execvp requiere terminación NULL
             
             if (args[0] == NULL) {
-                printf("ERROR - Comando %d vacío\n", i);
-                continue;
+                fprintf(stderr, "ERROR - Comando %d vacío\n", i);
+                command_error = 1;
+                break;
             }
             
-            //printf("DEBUG - Procesando comando %d: '%s' con %d argumentos\n", 
-                   //i, args[0], arg_count);
+            // Debug: mostrar argumentos parseados
+            /*
+            printf("DEBUG - Comando %d: '%s' con %d argumentos: ", i, args[0], arg_count);
+            for (int j = 0; j < arg_count; j++) {
+                printf("'%s' ", args[j]);
+            }
+            printf("\n");
+            */
             
             // CREAR PROCESO HIJO
             pid_t pid = fork();
             
             if (pid == -1) {
                 perror("Error en fork");
-                continue;
+                command_error = 1;
+                break;
             }
             
             if (pid == 0) {
                 // ========== CÓDIGO DEL PROCESO HIJO ==========
-                //printf("DEBUG - Hijo %d: configurando redirecciones\n", i);
                 
                 // REDIRECCIÓN DE ENTRADA (stdin)
-                // Si NO es el primer comando, leer del pipe anterior
                 if (i > 0) {
-                    //printf("DEBUG - Hijo %d: redirigiendo stdin desde pipe[%d][0]=%d\n", 
-                           //i, i-1, pipes[i-1][0]);
                     if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
                         perror("Error en dup2 (stdin)");
                         exit(1);
                     }
                 }
                 
-                // REDIRECCIÓN DE SALIDA (stdout)  
-                // Si NO es el último comando, escribir al pipe siguiente
+                // REDIRECCIÓN DE SALIDA (stdout)
                 if (i < command_count - 1) {
-                    printf("DEBUG - Hijo %d: redirigiendo stdout hacia pipe[%d][1]=%d\n", 
-                           i, i, pipes[i][1]);
                     if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
                         perror("Error en dup2 (stdout)");
                         exit(1);
@@ -146,68 +315,541 @@ int main() {
                     close(pipes[j][1]);
                 }
                 
-                //printf("DEBUG - Hijo %d: ejecutando '%s'\n", i, args[0]);
-                
                 // EJECUTAR EL PROGRAMA
                 execvp(args[0], args);
                 
                 // Si llegamos aquí, execvp() falló
                 perror("Error en execvp");
-                exit(127);  // Código estándar para "comando no encontrado"
+                exit(127);
                 
             } else {
                 // ========== CÓDIGO DEL PROCESO PADRE ==========
-                pids[i] = pid;
-                //printf("DEBUG - Padre: creado hijo %d con PID %d para comando '%s'\n", 
-                       //i, pid, args[0]);
+                pids[pids_count++] = pid;
             }
         }
 
+        // Si hubo error en algún comando, limpiar y continuar
+        if (command_error) {
+            for (int j = 0; j < num_pipes; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            for (int j = 0; j < pids_count; j++) {
+                kill(pids[j], SIGTERM);
+                waitpid(pids[j], NULL, 0);
+            }
+            continue;
+        }
+
         // CERRAR PIPES EN EL PROCESO PADRE
-        // ¡IMPORTANTE! Esto debe hacerse DESPUÉS de crear todos los hijos
-        // pero ANTES de esperar por ellos
         for (int i = 0; i < num_pipes; i++) {
             close(pipes[i][0]);
             close(pipes[i][1]);
-            //printf("DEBUG - Padre: pipe %d cerrado\n", i);
         }
 
-        // PASO 5: ESPERAR A QUE TERMINEN TODOS LOS PROCESOS HIJOS
-        //printf("DEBUG - Padre: esperando a que terminen todos los procesos hijos...\n");
-        
-        for (int i = 0; i < command_count; i++) {
+        // PASO 4: ESPERAR A QUE TERMINEN TODOS LOS PROCESOS HIJOS
+        for (int i = 0; i < pids_count; i++) {
             int status;
             pid_t finished_pid = waitpid(pids[i], &status, 0);
             
             if (finished_pid == -1) {
                 perror("Error en waitpid");
-            } else {
-                //printf("DEBUG - Proceso hijo PID %d (comando %d) terminó", finished_pid, i);
-                
-                if (WIFEXITED(status)) {
-                    int exit_code = WEXITSTATUS(status);
-                    //printf(" con código de salida: %d\n", exit_code);
-                    
-                    
-                    if (exit_code != 0) {
-                        //printf("ADVERTENCIA - El comando terminó con error (código %d)\n", exit_code);
-                    }
-                } else if (WIFSIGNALED(status)) {
-                    int signal_num = WTERMSIG(status);
-                    //printf(" por señal: %d\n", signal_num);
-                } else {
-                    //printf(" de forma anormal\n");
-                }
             }
         }
         
-        //printf("DEBUG - Todos los procesos hijos han terminado\n");
-        //printf("========================================\n");
+        continue;
+        
+        cleanup_and_continue:
+        // Limpiar pipes en caso de error
+        for (int i = 0; i < num_pipes; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+        }
+        continue;
     }
     
-    //printf("Shell terminado.\n");
     return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <unistd.h>
+// #include <sys/wait.h>
+// #include <string.h>
+
+// #define MAX_COMMANDS 200
+// #define MAX_ARGS 50  // Máximo número de argumentos por comando
+
+// // Función para parsear argumentos respetando comillas
+// int parse_arguments(char *command_str, char *args[]) {
+//     int arg_count = 0;
+//     char *ptr = command_str;
+    
+//     while (*ptr && arg_count < MAX_ARGS - 1) {
+//         // Saltar espacios en blanco
+//         while (*ptr == ' ' || *ptr == '\t') ptr++;
+        
+//         if (*ptr == '\0') break;
+        
+//         char *arg_start = ptr;
+        
+//         // Si encontramos una comilla, buscar la comilla de cierre
+//         if (*ptr == '"') {
+//             ptr++; // Saltar la comilla de apertura
+//             arg_start = ptr; // El argumento empieza después de la comilla
+            
+//             // Buscar la comilla de cierre
+//             while (*ptr && *ptr != '"') ptr++;
+            
+//             if (*ptr == '"') {
+//                 *ptr = '\0'; // Terminar la cadena en la comilla de cierre
+//                 ptr++; // Avanzar después de la comilla
+//             }
+//         } else {
+//             // Argumento normal, buscar el siguiente espacio
+//             while (*ptr && *ptr != ' ' && *ptr != '\t') ptr++;
+            
+//             if (*ptr) {
+//                 *ptr = '\0';
+//                 ptr++;
+//             }
+//         }
+        
+//         args[arg_count++] = arg_start;
+//     }
+    
+//     args[arg_count] = NULL;
+//     return arg_count;
+// }
+
+// int main() {
+//     char command[256];
+//     char *commands[MAX_COMMANDS];
+//     int command_count = 0;
+
+//     while (1) 
+//     {
+//         // RESETEAR PARA CADA LÍNEA
+//         command_count = 0;
+        
+//         //printf("Shell> ");
+        
+//         // Leer línea de comandos del usuario
+//         fgets(command, sizeof(command), stdin);
+        
+//         // Remover el salto de línea
+//         command[strcspn(command, "\n")] = '\0';
+        
+//         // Si el usuario presiona solo Enter, continuar
+//         if (strlen(command) == 0) {
+//             continue;
+//         }
+        
+//         // Comando 'exit' para salir del shell
+//         if (strcmp(command, "exit") == 0) {
+//             //printf("Saliendo del shell...\n");
+//             break;
+//         }
+
+//         // PASO 1: TOKENIZAR POR PIPES
+//         // Separar comandos por el carácter '|'
+//         char *token = strtok(command, "|");
+//         while (token != NULL && command_count < MAX_COMMANDS) 
+//         {
+//             // Eliminar espacios al inicio y final de cada comando
+//             while (*token == ' ' || *token == '\t') token++;  // Eliminar espacios al inicio
+            
+//             char *end = token + strlen(token) - 1;
+//             while (end > token && (*end == ' ' || *end == '\t')) *end-- = '\0';  // Eliminar espacios al final
+            
+//             commands[command_count++] = token;
+//             token = strtok(NULL, "|");
+//         }
+        
+//         if (command_count == 0) {
+//             continue;  // No hay comandos válidos
+//         }
+        
+//         //printf("DEBUG - Total comandos encontrados: %d\n", command_count);
+//         for (int i = 0; i < command_count; i++) {
+//             //printf("DEBUG - Comando %d: '%s'\n", i, commands[i]);
+//         }
+
+//         // PASO 3: CREAR LOS PIPES NECESARIOS
+//         int num_pipes = command_count - 1;  // N comandos = N-1 pipes
+//         int pipes[MAX_COMMANDS-1][2];
+        
+//         // Crear todos los pipes necesarios
+//         for (int i = 0; i < num_pipes; i++) {
+//             if (pipe(pipes[i]) == -1) {
+//                 perror("Error creando pipe");
+//                 continue;  // Continuar con el siguiente comando
+//             }
+//             //printf("DEBUG - Pipe %d creado: lectura=%d, escritura=%d\n", 
+//                    //i, pipes[i][0], pipes[i][1]);
+//         }
+        
+//         //printf("DEBUG - Total pipes creados: %d\n", num_pipes);
+
+//         // PASO 4: CREAR PROCESOS Y CONFIGURAR REDIRECCIONES
+//         pid_t pids[MAX_COMMANDS];
+        
+//         for (int i = 0; i < command_count; i++) 
+//         {
+//             // PASO 2: PARSING DE ARGUMENTOS PARA CADA COMANDO
+//             char *args[MAX_ARGS];
+//             int arg_count = 0;
+            
+//             // Crear copia del comando para no modificar el original
+//             char command_copy[256];
+//             strcpy(command_copy, commands[i]);
+            
+//             // Usar la nueva función de parsing que maneja comillas
+//             arg_count = parse_arguments(command_copy, args);
+            
+//             if (args[0] == NULL) {
+//                 printf("ERROR - Comando %d vacío\n", i);
+//                 continue;
+//             }
+            
+//             //printf("DEBUG - Procesando comando %d: '%s' con %d argumentos\n", 
+//                    //i, args[0], arg_count);
+            
+//             // CREAR PROCESO HIJO
+//             pid_t pid = fork();
+            
+//             if (pid == -1) {
+//                 perror("Error en fork");
+//                 continue;
+//             }
+            
+//             if (pid == 0) {
+//                 // ========== CÓDIGO DEL PROCESO HIJO ==========
+//                 //printf("DEBUG - Hijo %d: configurando redirecciones\n", i);
+                
+//                 // REDIRECCIÓN DE ENTRADA (stdin)
+//                 // Si NO es el primer comando, leer del pipe anterior
+//                 if (i > 0) {
+//                     //printf("DEBUG - Hijo %d: redirigiendo stdin desde pipe[%d][0]=%d\n", 
+//                            //i, i-1, pipes[i-1][0]);
+//                     if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
+//                         perror("Error en dup2 (stdin)");
+//                         exit(1);
+//                     }
+//                 }
+                
+//                 // REDIRECCIÓN DE SALIDA (stdout)  
+//                 // Si NO es el último comando, escribir al pipe siguiente
+//                 if (i < command_count - 1) {
+//                     //printf("DEBUG - Hijo %d: redirigiendo stdout hacia pipe[%d][1]=%d\n", 
+//                            //i, i, pipes[i][1]);
+//                     if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
+//                         perror("Error en dup2 (stdout)");
+//                         exit(1);
+//                     }
+//                 }
+                
+//                 // CERRAR TODOS LOS DESCRIPTORES DE PIPES EN EL HIJO
+//                 for (int j = 0; j < num_pipes; j++) {
+//                     close(pipes[j][0]);
+//                     close(pipes[j][1]);
+//                 }
+                
+//                 //printf("DEBUG - Hijo %d: ejecutando '%s'\n", i, args[0]);
+                
+//                 // EJECUTAR EL PROGRAMA
+//                 execvp(args[0], args);
+                
+//                 // Si llegamos aquí, execvp() falló
+//                 perror("Error en execvp");
+//                 exit(127);  // Código estándar para "comando no encontrado"
+                
+//             } else {
+//                 // ========== CÓDIGO DEL PROCESO PADRE ==========
+//                 pids[i] = pid;
+//                 //printf("DEBUG - Padre: creado hijo %d con PID %d para comando '%s'\n", 
+//                        //i, pid, args[0]);
+//             }
+//         }
+
+//         // CERRAR PIPES EN EL PROCESO PADRE
+//         // ¡IMPORTANTE! Esto debe hacerse DESPUÉS de crear todos los hijos
+//         // pero ANTES de esperar por ellos
+//         for (int i = 0; i < num_pipes; i++) {
+//             close(pipes[i][0]);
+//             close(pipes[i][1]);
+//             //printf("DEBUG - Padre: pipe %d cerrado\n", i);
+//         }
+
+//         // PASO 5: ESPERAR A QUE TERMINEN TODOS LOS PROCESOS HIJOS
+//         //printf("DEBUG - Padre: esperando a que terminen todos los procesos hijos...\n");
+        
+//         for (int i = 0; i < command_count; i++) {
+//             int status;
+//             pid_t finished_pid = waitpid(pids[i], &status, 0);
+            
+//             if (finished_pid == -1) {
+//                 perror("Error en waitpid");
+//             } else {
+//                 //printf("DEBUG - Proceso hijo PID %d (comando %d) terminó", finished_pid, i);
+                
+//                 if (WIFEXITED(status)) {
+//                     int exit_code = WEXITSTATUS(status);
+//                     //printf(" con código de salida: %d\n", exit_code);
+                    
+                    
+//                     if (exit_code != 0) {
+//                         //printf("ADVERTENCIA - El comando terminó con error (código %d)\n", exit_code);
+//                     }
+//                 } else if (WIFSIGNALED(status)) {
+//                     int signal_num = WTERMSIG(status);
+//                     //printf(" por señal: %d\n", signal_num);
+//                 } else {
+//                     //printf(" de forma anormal\n");
+//                 }
+//             }
+//         }
+        
+//         //printf("DEBUG - Todos los procesos hijos han terminado\n");
+//         //printf("========================================\n");
+//     }
+    
+//     //printf("Shell terminado.\n");
+//     return 0;
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <unistd.h>
+// #include <sys/wait.h>
+// #include <string.h>
+
+// #define MAX_COMMANDS 200
+// #define MAX_ARGS 50  // Máximo número de argumentos por comando
+
+// int main() {
+//     char command[256];
+//     char *commands[MAX_COMMANDS];
+//     int command_count = 0;
+
+//     while (1) 
+//     {
+//         // RESETEAR PARA CADA LÍNEA
+//         command_count = 0;
+        
+//         //printf("Shell> ");
+        
+//         // Leer línea de comandos del usuario
+//         fgets(command, sizeof(command), stdin);
+        
+//         // Remover el salto de línea
+//         command[strcspn(command, "\n")] = '\0';
+        
+//         // Si el usuario presiona solo Enter, continuar
+//         if (strlen(command) == 0) {
+//             continue;
+//         }
+        
+//         // Comando 'exit' para salir del shell
+//         if (strcmp(command, "exit") == 0) {
+//             //printf("Saliendo del shell...\n");
+//             break;
+//         }
+
+//         // PASO 1: TOKENIZAR POR PIPES
+//         // Separar comandos por el carácter '|'
+//         char *token = strtok(command, "|");
+//         while (token != NULL && command_count < MAX_COMMANDS) 
+//         {
+//             // Eliminar espacios al inicio y final de cada comando
+//             while (*token == ' ' || *token == '\t') token++;  // Eliminar espacios al inicio
+            
+//             char *end = token + strlen(token) - 1;
+//             while (end > token && (*end == ' ' || *end == '\t')) *end-- = '\0';  // Eliminar espacios al final
+            
+//             commands[command_count++] = token;
+//             token = strtok(NULL, "|");
+//         }
+        
+//         if (command_count == 0) {
+//             continue;  // No hay comandos válidos
+//         }
+        
+//         //printf("DEBUG - Total comandos encontrados: %d\n", command_count);
+//         for (int i = 0; i < command_count; i++) {
+//             //printf("DEBUG - Comando %d: '%s'\n", i, commands[i]);
+//         }
+
+//         // PASO 3: CREAR LOS PIPES NECESARIOS
+//         int num_pipes = command_count - 1;  // N comandos = N-1 pipes
+//         int pipes[MAX_COMMANDS-1][2];
+        
+//         // Crear todos los pipes necesarios
+//         for (int i = 0; i < num_pipes; i++) {
+//             if (pipe(pipes[i]) == -1) {
+//                 perror("Error creando pipe");
+//                 continue;  // Continuar con el siguiente comando
+//             }
+//             //printf("DEBUG - Pipe %d creado: lectura=%d, escritura=%d\n", 
+//                    //i, pipes[i][0], pipes[i][1]);
+//         }
+        
+//         //printf("DEBUG - Total pipes creados: %d\n", num_pipes);
+
+//         // PASO 4: CREAR PROCESOS Y CONFIGURAR REDIRECCIONES
+//         pid_t pids[MAX_COMMANDS];
+        
+//         for (int i = 0; i < command_count; i++) 
+//         {
+//             // PASO 2: PARSING DE ARGUMENTOS PARA CADA COMANDO
+//             char *args[MAX_ARGS];
+//             int arg_count = 0;
+            
+//             // Crear copia del comando para no modificar el original
+//             char command_copy[256];
+//             strcpy(command_copy, commands[i]);
+            
+//             // Parsear argumentos separando por espacios
+//             char *arg = strtok(command_copy, " \t");
+//             while (arg != NULL && arg_count < MAX_ARGS - 1) 
+//             {
+//                 args[arg_count++] = arg;
+//                 arg = strtok(NULL, " \t");
+//             }
+//             args[arg_count] = NULL;  // execvp requiere terminación NULL
+            
+//             if (args[0] == NULL) {
+//                 printf("ERROR - Comando %d vacío\n", i);
+//                 continue;
+//             }
+            
+//             //printf("DEBUG - Procesando comando %d: '%s' con %d argumentos\n", 
+//                    //i, args[0], arg_count);
+            
+//             // CREAR PROCESO HIJO
+//             pid_t pid = fork();
+            
+//             if (pid == -1) {
+//                 perror("Error en fork");
+//                 continue;
+//             }
+            
+//             if (pid == 0) {
+//                 // ========== CÓDIGO DEL PROCESO HIJO ==========
+//                 //printf("DEBUG - Hijo %d: configurando redirecciones\n", i);
+                
+//                 // REDIRECCIÓN DE ENTRADA (stdin)
+//                 // Si NO es el primer comando, leer del pipe anterior
+//                 if (i > 0) {
+//                     //printf("DEBUG - Hijo %d: redirigiendo stdin desde pipe[%d][0]=%d\n", 
+//                            //i, i-1, pipes[i-1][0]);
+//                     if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
+//                         perror("Error en dup2 (stdin)");
+//                         exit(1);
+//                     }
+//                 }
+                
+//                 // REDIRECCIÓN DE SALIDA (stdout)  
+//                 // Si NO es el último comando, escribir al pipe siguiente
+//                 if (i < command_count - 1) {
+//                     //printf("DEBUG - Hijo %d: redirigiendo stdout hacia pipe[%d][1]=%d\n", 
+//                            //i, i, pipes[i][1]);
+//                     if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
+//                         perror("Error en dup2 (stdout)");
+//                         exit(1);
+//                     }
+//                 }
+                
+//                 // CERRAR TODOS LOS DESCRIPTORES DE PIPES EN EL HIJO
+//                 for (int j = 0; j < num_pipes; j++) {
+//                     close(pipes[j][0]);
+//                     close(pipes[j][1]);
+//                 }
+                
+//                 //printf("DEBUG - Hijo %d: ejecutando '%s'\n", i, args[0]);
+                
+//                 // EJECUTAR EL PROGRAMA
+//                 execvp(args[0], args);
+                
+//                 // Si llegamos aquí, execvp() falló
+//                 perror("Error en execvp");
+//                 exit(127);  // Código estándar para "comando no encontrado"
+                
+//             } else {
+//                 // ========== CÓDIGO DEL PROCESO PADRE ==========
+//                 pids[i] = pid;
+//                 //printf("DEBUG - Padre: creado hijo %d con PID %d para comando '%s'\n", 
+//                        //i, pid, args[0]);
+//             }
+//         }
+
+//         // CERRAR PIPES EN EL PROCESO PADRE
+//         // ¡IMPORTANTE! Esto debe hacerse DESPUÉS de crear todos los hijos
+//         // pero ANTES de esperar por ellos
+//         for (int i = 0; i < num_pipes; i++) {
+//             close(pipes[i][0]);
+//             close(pipes[i][1]);
+//             //printf("DEBUG - Padre: pipe %d cerrado\n", i);
+//         }
+
+//         // PASO 5: ESPERAR A QUE TERMINEN TODOS LOS PROCESOS HIJOS
+//         //printf("DEBUG - Padre: esperando a que terminen todos los procesos hijos...\n");
+        
+//         for (int i = 0; i < command_count; i++) {
+//             int status;
+//             pid_t finished_pid = waitpid(pids[i], &status, 0);
+            
+//             if (finished_pid == -1) {
+//                 perror("Error en waitpid");
+//             } else {
+//                 //printf("DEBUG - Proceso hijo PID %d (comando %d) terminó", finished_pid, i);
+                
+//                 if (WIFEXITED(status)) {
+//                     int exit_code = WEXITSTATUS(status);
+//                     //printf(" con código de salida: %d\n", exit_code);
+                    
+                    
+//                     if (exit_code != 0) {
+//                         //printf("ADVERTENCIA - El comando terminó con error (código %d)\n", exit_code);
+//                     }
+//                 } else if (WIFSIGNALED(status)) {
+//                     int signal_num = WTERMSIG(status);
+//                     //printf(" por señal: %d\n", signal_num);
+//                 } else {
+//                     //printf(" de forma anormal\n");
+//                 }
+//             }
+//         }
+        
+//         //printf("DEBUG - Todos los procesos hijos han terminado\n");
+//         //printf("========================================\n");
+//     }
+    
+//     //printf("Shell terminado.\n");
+//     return 0;
+// }
 
 
 
