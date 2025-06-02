@@ -22,10 +22,10 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # COMPILACIÓN
-echo -e "${BLUE}⚙️  Compilando shell...${NC}"
+echo -e "${BLUE}Compilando shell...${NC}"
 make -s
 if [ ! -f ./shell ]; then
-    echo -e "${RED}❌ Error: el binario 'shell' no fue generado${NC}"
+    echo -e "${RED} Error: el binario 'shell' no fue generado${NC}"
     exit 1
 fi
 
@@ -54,19 +54,19 @@ run_test() {
         if [ -s "$SHELL_ERR" ]; then
             echo -e "   ${YELLOW}⚠️  Error detectado, pero se recomienda verificar manualmente la salida de stderr:${NC}"
             cat "$SHELL_ERR" | head -3 | sed 's/^/     /'
-            echo -e "   ${GREEN}✅ Funcionalidad OK (stderr no está vacío)${NC}"
+            echo -e "   ${GREEN}Funcionalidad OK (stderr no está vacío)${NC}"
             ((PASSED++))
         else
-            echo -e "   ${RED}❌ Funcionalidad FALLÓ (No se detectó error en stderr)${NC}"
+            echo -e "   ${RED}Funcionalidad FALLÓ (No se detectó error en stderr)${NC}"
             ((FAILED++))
         fi
     elif [ "$input" = "exit" ]; then
         # Special case for exit command
         if [ ! -s "$SHELL_OUT" ]; then
-            echo -e "   ${GREEN}✅ Funcionalidad OK (Exit funcionó correctamente)${NC}"
+            echo -e "   ${GREEN}Funcionalidad OK (Exit funcionó correctamente)${NC}"
             ((PASSED++))
         else
-            echo -e "   ${RED}❌ Funcionalidad FALLÓ (Exit no funcionó correctamente)${NC}"
+            echo -e "   ${RED}Funcionalidad FALLÓ (Exit no funcionó correctamente)${NC}"
             ((FAILED++))
         fi
     else
@@ -75,10 +75,10 @@ run_test() {
         
         # Compare outputs using diff
         if diff -q "$EXPECTED_OUT" "$SHELL_OUT" > /dev/null; then
-            echo -e "   ${GREEN}✅ Funcionalidad OK${NC}"
+            echo -e "   ${GREEN}Funcionalidad OK${NC}"
             ((PASSED++))
         else
-            echo -e "   ${RED}❌ Funcionalidad FALLÓ${NC}"
+            echo -e "   ${RED}Funcionalidad FALLÓ${NC}"
             echo -e "   ${BLUE}Diferencias encontradas:${NC}"
             echo -e "   ${BLUE}Esperado:${NC}"
             cat "$EXPECTED_OUT" | head -3 | sed 's/^/     /'
@@ -92,10 +92,10 @@ run_test() {
     echo -e "$input\nexit" | valgrind --leak-check=full --error-exitcode=42 ./shell > "$TEMP_OUT" 2>> "$VALGRIND_OUT"
     status=$?
     if [ "$status" -eq 0 ]; then
-        echo -e "   ${GREEN}✅ Memoria OK (Valgrind)${NC}"
+        echo -e "   ${GREEN}Memoria OK (Valgrind)${NC}"
         ((MEM_CLEAN++))
     else
-        echo -e "   ${RED}🧠 Leak detectado (Valgrind)${NC}"
+        echo -e "   ${RED}Leak detectado (Valgrind)${NC}"
         ((MEM_FAIL++))
         if [ "$VERBOSE" = true ]; then
             cat "$VALGRIND_OUT"

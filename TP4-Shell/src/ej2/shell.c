@@ -7,15 +7,15 @@
 
 #define MAX_COMMANDS 200
 #define MAX_ARGS 65
-#define MAX_COMMAND_LENGTH 1024  // Aumentado de 1024 a 8192 (8KB)
+#define MAX_COMMAND_LENGTH 1024
 
-// Función para parsear argumentos respetando comillas simples y dobles
+//Función para parsear argumentos respetando comillas simples y dobles
 int parse_arguments(char *command_str, char *args[]) {
     int arg_count = 0;
     char *ptr = command_str;
     
     while (*ptr && arg_count < MAX_ARGS - 1) {
-        // Saltar espacios en blanco
+        //Saltar espacios en blanco
         while (*ptr == ' ' || *ptr == '\t') ptr++;
         
         if (*ptr == '\0') break;
@@ -23,28 +23,28 @@ int parse_arguments(char *command_str, char *args[]) {
         char *arg_start = ptr;
         char quote_char = '\0';
         
-        // Detectar si empieza con comilla (simple o doble)
+        //Detectar si empieza con comilla (simple o doble)
         if (*ptr == '"' || *ptr == '\'') {
             quote_char = *ptr;
-            ptr++; // Saltar la comilla de apertura
-            arg_start = ptr; // El argumento empieza después de la comilla
+            ptr++;
+            arg_start = ptr; 
             
-            // Buscar la comilla de cierre del mismo tipo
+            //Buscar la comilla de cierre del mismo tipo
             while (*ptr && *ptr != quote_char) {
                 ptr++;
             }
             
             if (*ptr == quote_char) {
-                *ptr = '\0'; // Terminar la cadena en la comilla de cierre
-                ptr++; // Avanzar después de la comilla
+                *ptr = '\0';
+                ptr++;
             } else {
                 // Comilla no cerrada - tratarla como texto normal
-                ptr = arg_start - 1; // Volver al inicio incluyendo la comilla
+                ptr = arg_start - 1;
                 goto parse_normal;
             }
         } else {
             parse_normal:
-            // Argumento normal, buscar el siguiente espacio
+            //Argumento normal, buscar el siguiente espacio
             while (*ptr && *ptr != ' ' && *ptr != '\t') {
                 ptr++;
             }
@@ -58,7 +58,7 @@ int parse_arguments(char *command_str, char *args[]) {
         args[arg_count++] = arg_start;
     }
     
-    // Verificar si hay más argumentos después del límite
+    //Verificar si hay más argumentos después del límite
     while (*ptr == ' ' || *ptr == '\t') ptr++;
     if (*ptr != '\0') {
         return -1;
@@ -68,35 +68,33 @@ int parse_arguments(char *command_str, char *args[]) {
     return arg_count;
 }
 
-// Función mejorada para separar comandos por pipes respetando comillas
+// Función para separar comandos por pipes respetando comillas
 int parse_pipeline(char *command, char *commands[], int max_commands) {
     int command_count = 0;
     char *start = command;
     char *ptr = command;
     
     while (*ptr && command_count < max_commands) {
-        // Si encontramos una comilla, saltarla completamente
         if (*ptr == '"' || *ptr == '\'') {
             char quote_char = *ptr;
-            ptr++; // Saltar comilla de apertura
+            ptr++;
             
-            // Buscar comilla de cierre
             while (*ptr && *ptr != quote_char) {
                 ptr++;
             }
             
             if (*ptr == quote_char) {
-                ptr++; // Saltar comilla de cierre
+                ptr++;
             }
             continue;
         }
         
-        // Si encontramos un pipe fuera de comillas
+        //Si encontramos un pipe fuera de comillas
         if (*ptr == '|') {
-            // Terminar el comando actual
+            //Terminar el comando actual
             *ptr = '\0';
             
-            // Limpiar espacios del comando
+            //Limpiar espacios del comando
             char *cmd_start = start;
             while (*cmd_start == ' ' || *cmd_start == '\t') cmd_start++;
             
@@ -114,7 +112,7 @@ int parse_pipeline(char *command, char *commands[], int max_commands) {
             
             commands[command_count++] = cmd_start;
             
-            // Avanzar al siguiente comando
+            //Avanzar al siguiente comando
             ptr++;
             start = ptr;
             continue;
@@ -125,7 +123,7 @@ int parse_pipeline(char *command, char *commands[], int max_commands) {
     
     // Procesar el último comando
     if (*start) {
-        // Limpiar espacios del último comando
+        //Limpiar espacios del último comando
         char *cmd_start = start;
         while (*cmd_start == ' ' || *cmd_start == '\t') cmd_start++;
         
@@ -140,7 +138,7 @@ int parse_pipeline(char *command, char *commands[], int max_commands) {
         }
     }
     
-    // Verificar si se excedió el límite de comandos
+    //Verificar si se excedió el límite de comandos
     if (command_count >= max_commands && *ptr) {
         fprintf(stderr, "Error: Pipeline excede el límite máximo de %d comandos\n", max_commands);
         return -1;
@@ -150,24 +148,24 @@ int parse_pipeline(char *command, char *commands[], int max_commands) {
 }
 
 int main() {
-    char command[MAX_COMMAND_LENGTH];  // Ahora puede manejar hasta 8KB
+    char command[MAX_COMMAND_LENGTH];
     char *commands[MAX_COMMANDS];
     int command_count = 0;
 
 
     while (1) 
     {
-        // RESETEAR PARA CADA LÍNEA
+        //resetea oara cada linea
         command_count = 0;
         
-        // Leer línea de comandos del usuario
+        //Lee la línea de comandos del usuario
         fflush(stdout);
         
         if (!fgets(command, sizeof(command), stdin)) {
-            break; // EOF
+            break;
         }
         
-        // Verificar si el comando fue truncado (línea demasiado larga)
+        //Verificar si el comando fue truncado (línea demasiado larga)
         int len = strlen(command);
         if (len == MAX_COMMAND_LENGTH - 1 && command[len-1] != '\n') {
             fprintf(stderr, "Error: Comando demasiado largo (máximo %d caracteres)\n", MAX_COMMAND_LENGTH - 1);
@@ -177,34 +175,30 @@ int main() {
             continue;
         }
         
-        // Remover el salto de línea
         command[strcspn(command, "\n")] = '\0';
-        
-        // Si el usuario presiona solo Enter, continuar
         if (strlen(command) == 0) {
             continue;
         }
         
-        // Comando 'exit' para salir del shell
+        //Comando 'exit' para salir del shell
         if (strcmp(command, "exit") == 0) {
             break;
         }
 
-        // VALIDACIÓN: Verificar pipes mal formados
-        // Verificar pipe al inicio
+        //Verificar pipe al inicio
         if (command[0] == '|') {
             fprintf(stderr, "zsh: parse error near `|'\n");
             continue;
         }
         
-        // Verificar pipe al final
+        //Verificar pipe al final
         len = strlen(command);
         if (len > 0 && command[len-1] == '|') {
             fprintf(stderr, "Error: Pipe al final del comando\n");
             continue;
         }
         
-        // Verificar pipes dobles (fuera de comillas)
+        //Verificar pipes dobles (fuera de comillas)
         char *check_ptr = command;
         int found_double_pipe = 0;
         while (*check_ptr) {
@@ -226,14 +220,13 @@ int main() {
             continue;
         }
 
-        // PASO 1: PARSING MEJORADO DE PIPELINE
         command_count = parse_pipeline(command, commands, MAX_COMMANDS);
         
         if (command_count <= 0) {
-            continue;  // Error en parsing o no hay comandos válidos
+            continue;  //Error en parsing o no hay comandos válidos
         }
 
-        // PASO 2: CREAR LOS PIPES NECESARIOS
+
         int num_pipes = command_count - 1;
         int pipes[MAX_COMMANDS-1][2];
         
@@ -244,23 +237,23 @@ int main() {
             }
         }
 
-        // PASO 3: CREAR PROCESOS Y CONFIGURAR REDIRECCIONES
+        
         pid_t pids[MAX_COMMANDS];
         int pids_count = 0;
         int command_error = 0;
         
         for (int i = 0; i < command_count; i++) 
         {
-            // PARSING DE ARGUMENTOS PARA CADA COMANDO
+            //PARSING DE ARGUMENTOS PARA CADA COMANDO
             char *args[MAX_ARGS];
             int arg_count = 0;
             
-            // Crear copia del comando para no modificar el original
-            char command_copy[1024];  // Buffer más pequeño para cada comando individual
+            //Crear copia del comando para no modificar el original
+            char command_copy[1024];
             strncpy(command_copy, commands[i], sizeof(command_copy) - 1);
             command_copy[sizeof(command_copy) - 1] = '\0';
             
-            // Parsear argumentos con manejo de comillas
+            //Parsear argumentos con manejo de comillas
             arg_count = parse_arguments(command_copy, args);
             
             if (arg_count == -1) {
@@ -276,7 +269,7 @@ int main() {
                 break;
             }
             
-            // CREAR PROCESO HIJO
+            //CREAR PROCESO HIJO
             pid_t pid = fork();
             
             if (pid == -1) {
@@ -286,9 +279,7 @@ int main() {
             }
             
             if (pid == 0) {
-                // ========== CÓDIGO DEL PROCESO HIJO ==========
                 
-                // REDIRECCIÓN DE ENTRADA (stdin)
                 if (i > 0) {
                     if (dup2(pipes[i-1][0], STDIN_FILENO) == -1) {
                         perror("Error en dup2 (stdin)");
@@ -296,34 +287,31 @@ int main() {
                     }
                 }
                 
-                // REDIRECCIÓN DE SALIDA (stdout)
                 if (i < command_count - 1) {
                     if (dup2(pipes[i][1], STDOUT_FILENO) == -1) {
                         perror("Error en dup2 (stdout)");
                         exit(1);
                     }
                 }
-                
-                // CERRAR TODOS LOS DESCRIPTORES DE PIPES EN EL HIJO
+                // Cerrar todos los pipes en el proceso hijo
                 for (int j = 0; j < num_pipes; j++) {
                     close(pipes[j][0]);
                     close(pipes[j][1]);
                 }
                 
-                // EJECUTAR EL PROGRAMA
+                //Ejecutar el programa
                 execvp(args[0], args);
                 
-                // Si llegamos aquí, execvp() falló
+                //Si llega aca execvp fallo
                 perror("Error en execvp");
                 exit(127);
                 
             } else {
-                // ========== CÓDIGO DEL PROCESO PADRE ==========
                 pids[pids_count++] = pid;
             }
         }
 
-        // Si hubo error en algún comando, limpiar y continuar
+        //Si hubo error en algún comando, limpiar y continuar
         if (command_error) {
             for (int j = 0; j < num_pipes; j++) {
                 close(pipes[j][0]);
@@ -336,13 +324,12 @@ int main() {
             continue;
         }
 
-        // CERRAR PIPES EN EL PROCESO PADRE
+        //Cerrar los pipes en el proceso padre
         for (int i = 0; i < num_pipes; i++) {
             close(pipes[i][0]);
             close(pipes[i][1]);
         }
 
-        // PASO 4: ESPERAR A QUE TERMINEN TODOS LOS PROCESOS HIJOS
         for (int i = 0; i < pids_count; i++) {
             int status;
             pid_t finished_pid = waitpid(pids[i], &status, 0);
@@ -355,7 +342,7 @@ int main() {
         continue;
         
         cleanup_and_continue:
-        // Limpiar pipes en caso de error
+        //Limpiar pipes en caso de error
         for (int i = 0; i < num_pipes; i++) {
             close(pipes[i][0]);
             close(pipes[i][1]);
