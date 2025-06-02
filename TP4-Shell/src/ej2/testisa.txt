@@ -10,6 +10,8 @@ ls | grep ".png .zip"
 
 echo hola
 
+seq 5 | tail -n 1
+
 cat testisa.txt | grep .zip
 
 cat testisa.txt
