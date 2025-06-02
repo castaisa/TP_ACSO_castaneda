@@ -18,6 +18,7 @@ extern free
 extern str_concat
 extern memcpy
 extern strlen
+extern strcpy ; importo strcpy
 
 mi_strdup:
     push rbp
