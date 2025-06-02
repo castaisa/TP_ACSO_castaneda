@@ -229,14 +229,24 @@ int main() {
 
         int num_pipes = command_count - 1;
         int pipes[MAX_COMMANDS-1][2];
+        int pipe_creation_success = 1;
         
         for (int i = 0; i < num_pipes; i++) {
             if (pipe(pipes[i]) == -1) {
                 perror("Error creando pipe");
-                goto cleanup_and_continue;
+                pipe_creation_success = 0;
+                // Limpiar pipes ya creados
+                for (int j = 0; j < i; j++) {
+                    close(pipes[j][0]);
+                    close(pipes[j][1]);
+                }
+                break;
             }
         }
 
+        if (!pipe_creation_success) {
+            continue;
+        }
         
         pid_t pids[MAX_COMMANDS];
         int pids_count = 0;
@@ -338,16 +348,6 @@ int main() {
                 perror("Error en waitpid");
             }
         }
-        
-        continue;
-        
-        cleanup_and_continue:
-        //Limpiar pipes en caso de error
-        for (int i = 0; i < num_pipes; i++) {
-            close(pipes[i][0]);
-            close(pipes[i][1]);
-        }
-        continue;
     }
     
     return 0;
