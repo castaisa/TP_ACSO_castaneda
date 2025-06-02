@@ -10,6 +10,11 @@ ls | grep ".png .zip"
 
 echo hola
 
+cat testisa.txt | grep .zip
+
 cat testisa.txt
 cat testisa.txt | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | tail -n 1
+
+
+Y otros mas que fui probanco que mi outpu sea igual al de la consigna.
 
