@@ -66,25 +66,28 @@ mi_strdup:
 
 
 string_proc_list_create_asm:
-push    rbp
-        mov     rbp, rsp
-        sub     rsp, 16
-        mov     edi, 16
-        call    malloc
-        mov     QWORD "" [rbp-8], rax
-        cmp     QWORD "" [rbp-8], 0
-        jne     .L6
-        mov     eax, 0
-        jmp     .L7
-.L6:
-        mov     rax, QWORD "" [rbp-8]
-        mov     QWORD "" [rax], 0
-        mov     rax, QWORD "" [rbp-8]
-        mov     QWORD "" [rax+8], 0
-        mov     rax, QWORD "" [rbp-8]
-.L7:
-        leave
-        ret
+    push rbp
+    mov rbp, rsp
+    
+    ;reservar 16 bytes
+    mov rdi, 16
+    call malloc
+    
+    ;si malloc falla retornar null
+    test rax, rax
+    jz .error
+    
+    mov qword [rax], 0
+    mov qword [rax + 8], 0
+    
+    ;rax ya tiene el puntero a retornar
+    pop rbp
+    ret
+
+.error:
+    ;retorna null
+    pop rbp
+    ret
 
 string_proc_node_create_asm:
 push    rbp
