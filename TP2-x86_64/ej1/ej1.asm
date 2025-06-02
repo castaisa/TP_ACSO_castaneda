@@ -20,38 +20,48 @@ extern memcpy
 extern strlen
 
 mi_strdup:
-        push    rbp
-        mov     rbp, rsp
-        sub     rsp, 32
-        mov     QWORD [rbp-24], rdi
-        cmp     QWORD [rbp-24], 0
-        jne     .L2
-        mov     eax, 0
-        jmp     .L3
-.L2:
-        mov     rax, QWORD [rbp-24]
-        mov     rdi, rax
-        call    strlen
-        add     rax, 1
-        mov     QWORD [rbp-8], rax
-        mov     rax, QWORD [rbp-8]
-        mov     rdi, rax
-        call    malloc
-        mov     QWORD [rbp-16], rax
-        cmp     QWORD [rbp-16], 0
-        jne     .L4
-        mov     eax, 0
-        jmp     .L3
-.L4:
-        mov     rdx, QWORD [rbp-8]
-        mov     rcx, QWORD [rbp-24]
-        mov     rax, QWORD [rbp-16]
-        mov     rsi, rcx
-        mov     rdi, rax
-        call    memcpy
-.L3:
-        leave
-        ret
+    push rbp
+    mov rbp, rsp
+    push rbx
+    
+    ;Si me pasan null tiro error
+    test rdi, rdi
+    jz .error
+    
+    ;Guardo el puntero original
+    mov rbx, rdi
+    
+    call strlen
+    inc rax
+    
+    ;reservo memoria para copiar la nueva cadena
+    mov rdi, rax
+    call malloc
+    
+    ;retornar null si falla malloc
+    test rax, rax
+    jz .error
+    
+    ;copia la cadena original a la nueva memoria
+    mov rdi, rax 
+    mov rsi, rbx
+    push rax
+    call strcpy
+    pop rax
+    
+    ;si funciona va a devolver el puntero a la nueva cadena
+    pop rbx
+    mov rsp, rbp
+    pop rbp
+    ret
+
+.error:
+    ;Retorna NULL en caso de error
+    xor rax, rax
+    pop rbx
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 string_proc_list_create_asm:
