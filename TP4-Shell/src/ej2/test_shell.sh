@@ -52,7 +52,7 @@ run_test() {
 
     if [[ "$should_error" == "error" ]]; then
         if [ -s "$SHELL_ERR" ]; then
-            echo -e "   ${YELLOW}⚠️  Error detectado, pero se recomienda verificar manualmente la salida de stderr:${NC}"
+            echo -e "   ${YELLOW}Error detectado, pero se recomienda verificar manualmente la salida de stderr:${NC}"
             cat "$SHELL_ERR" | head -3 | sed 's/^/     /'
             echo -e "   ${GREEN}Funcionalidad OK (stderr no está vacío)${NC}"
             ((PASSED++))

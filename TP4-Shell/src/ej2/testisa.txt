@@ -1,3 +1,15 @@
 imagen.png
 documento.zip
 imagen.jpg
+
+
+Comandos probados:
+ls | grep .zip
+ls | grep ".zip"
+ls | grep ".png .zip"
+
+echo hola
+
+cat testisa.txt
+cat testisa.txt | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | grep . | tail -n 1
+
