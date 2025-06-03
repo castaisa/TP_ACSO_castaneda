@@ -90,51 +90,64 @@ string_proc_list_create_asm:
     ret
 
 string_proc_node_create_asm:
-push    rbp
-        mov     rbp, rsp
-        sub     rsp, 32
-        mov     eax, edi
-        mov     QWORD "" [rbp-32], rsi
-        mov     BYTE "" [rbp-20], al
-        cmp     QWORD "" [rbp-32], 0
-        jne     .L9
-        mov     eax, 0
-        jmp     .L10
-.L9:
-        mov     edi, 32
-        call    malloc
-        mov     QWORD "" [rbp-8], rax
-        cmp     QWORD "" [rbp-8], 0
-        jne     .L11
-        mov     eax, 0
-        jmp     .L10
-.L11:
-        mov     rax, QWORD "" [rbp-32]
-        mov     rdi, rax
-        call    mi_strdup
-        mov     QWORD "" [rbp-16], rax
-        cmp     QWORD "" [rbp-16], 0
-        jne     .L12
-        mov     rax, QWORD "" [rbp-8]
-        mov     rdi, rax
-        call    free
-        mov     eax, 0
-        jmp     .L10
-.L12:
-        mov     rax, QWORD "" [rbp-8]
-        movzx   edx, BYTE "" [rbp-20]
-        mov     BYTE "" [rax+16], dl
-        mov     rax, QWORD "" [rbp-8]
-        mov     rdx, QWORD "" [rbp-16]
-        mov     QWORD "" [rax+24], rdx
-        mov     rax, QWORD "" [rbp-8]
-        mov     QWORD "" [rax], 0
-        mov     rax, QWORD "" [rbp-8]
-        mov     QWORD "" [rax+8], 0
-        mov     rax, QWORD "" [rbp-8]
-.L10:
-        leave
-        ret
+    ;guarda los registros que va a usar
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    
+    ;guarda los parametros de la funcion
+    mov bl, dil
+    mov r12, rsi
+    
+    ;si el puntero al string es null retorno null
+    test r12, r12
+    jz .error
+    
+    ;reserva memoria para el nodo (32 bytes)
+    mov rdi, 32
+    call malloc
+    mov r13, rax
+    
+    ;si malloc falla retorna null
+    test r13, r13
+    jz .error
+    
+    ;crea una copia del string usando mi strdup
+    mov rdi, r12
+    call mi_strdup
+    
+    ;se fija si mi strdup fue exitosa y si no, libera el nodo
+    test rax, rax
+    jz .cleanup_node
+    
+    ;inicializa los punteros al siguiete y al anterior del nodo, le asigna su proc_type y le pone su respectivo string
+    mov qword [r13], 0
+    mov qword [r13 + 8], 0
+    mov byte [r13 + 16], bl
+    mov qword [r13 + 24], rax
+    
+    ;si fue exitoso, retorna el puntero al nodo
+    mov rax, r13
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+    ret
+
+.cleanup_node:    ;cleanup libera la memoria del nodo si strdup falla
+    mov rdi, r13
+    call free
+    
+.error:  ;error es una funcion que se llama si algo falla y retorna null
+    xor rax, rax
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+    ret
+
 
 string_proc_list_add_node_asm:
 push    rbp
