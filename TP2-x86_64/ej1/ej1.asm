@@ -150,57 +150,64 @@ string_proc_node_create_asm:
 
 
 string_proc_list_add_node_asm:
-push    rbp
-        mov     rbp, rsp
-        sub     rsp, 48
-        mov     QWORD "" [rbp-24], rdi
-        mov     eax, esi
-        mov     QWORD "" [rbp-40], rdx
-        mov     BYTE "" [rbp-28], al
-        cmp     QWORD "" [rbp-24], 0
-        je      .L19
-        cmp     QWORD "" [rbp-40], 0
-        je      .L19
-        movzx   eax, BYTE "" [rbp-28]
-        mov     rdx, QWORD "" [rbp-40]
-        mov     rsi, rdx
-        mov     edi, eax
-        call    string_proc_node_create_asm
-        mov     QWORD "" [rbp-8], rax
-        cmp     QWORD "" [rbp-8], 0
-        je      .L20
-        mov     rax, QWORD "" [rbp-24]
-        mov     rax, QWORD "" [rax]
-        test    rax, rax
-        jne     .L18
-        mov     rax, QWORD "" [rbp-24]
-        mov     rdx, QWORD "" [rbp-8]
-        mov     QWORD "" [rax], rdx
-        mov     rax, QWORD "" [rbp-24]
-        mov     rdx, QWORD "" [rbp-8]
-        mov     QWORD "" [rax+8], rdx
-        jmp     .L13
-.L18:
-        mov     rax, QWORD "" [rbp-24]
-        mov     rdx, QWORD "" [rax+8]
-        mov     rax, QWORD "" [rbp-8]
-        mov     QWORD "" [rax+8], rdx
-        mov     rax, QWORD "" [rbp-24]
-        mov     rax, QWORD "" [rax+8]
-        mov     rdx, QWORD "" [rbp-8]
-        mov     QWORD "" [rax], rdx
-        mov     rax, QWORD "" [rbp-24]
-        mov     rdx, QWORD "" [rbp-8]
-        mov     QWORD "" [rax+8], rdx
-        jmp     .L13
-.L19:
-        nop
-        jmp     .L13
-.L20:
-        nop
-.L13:
-        leave
-        ret
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    
+    ;guarda los parametros
+    mov rbx, rdi
+    mov r12b, sil
+    mov r13, rdx
+
+    ;si la lista es null da error
+    test rbx, rbx
+    jz .error
+    
+    ;si el string es null da error
+    test r13, r13  
+    jz .error
+    
+    ;crea un nuevo nodo con sus respectivos parametros
+    movzx rdi, r12b
+    mov rsi, r13
+    call string_proc_node_create_asm
+    mov r13, rax
+    
+    ;si falla la creacion da error
+    test r13, r13
+    jz .error
+    
+    ;si tiene exito tienen que retornar 1
+    mov rax, 1
+    
+    ;se fija si la lista esta vacia
+    mov rax, qword [rbx]
+    test rax, rax
+    jz .lista_vacia
+    
+    mov rax, qword [rbx + 8]
+    mov qword [r13 + 8], rax
+    mov qword [rax], r13
+    mov qword [rbx + 8], r13
+    jmp .salir
+    
+.lista_vacia:
+    mov qword [rbx], r13
+    mov qword [rbx + 8], r13
+    jmp .salir
+    
+.error: ;retorna 0 y sale
+    xor rax, rax
+    jmp .salir
+    
+.salir: ;libera los registros y retorna
+    pop r13
+    pop r12  
+    pop rbx
+    pop rbp
+    ret
 
 string_proc_list_concat_asm:
 push    rbp
