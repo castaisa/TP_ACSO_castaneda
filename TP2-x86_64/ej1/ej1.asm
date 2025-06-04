@@ -179,9 +179,6 @@ string_proc_list_add_node_asm:
     cmp r13, NULL
     je .error
     
-    ;si tiene exito tienen que retornar 1
-    ;mov rax, TRUE
-    
     ;se fija si la lista esta vacia
     mov rax, qword [rbx]
     cmp rax, NULL
@@ -198,9 +195,8 @@ string_proc_list_add_node_asm:
     mov qword [rbx + 8], r13
     jmp .salir
     
-.error: ;retorna 0 y sale
-    ;mov rax, FALSE
-    ;jmp .salir
+.error: ;como devuelve void la funcion no tengo que cambiar rax, no hago nada
+    
     
 .salir: ;libera los registros y retorna
     pop r13
