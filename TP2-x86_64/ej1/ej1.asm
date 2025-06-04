@@ -198,5 +198,96 @@ string_proc_list_add_node_asm:
 .error: ;como devuelve void la funcion no tengo que cambiar rax, no hago nada
     
 .salir: ;libera los registros y retorna
+    pop r13
+    pop r12  
+    pop rbx
+    pop rbp
+    ret
 
+string_proc_list_concat_asm:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    push r14
+    
+    ;guardo parametros
+    mov rbx, rdi
+    mov r12b, sil
+    mov r13, rdx
+    
+    ;si la lista es null da error
+    cmp rbx, NULL
+    je .error
+    
+    ;si string inicial es null da error
+    cmp r13, NULL
+    je .error
+    
+    ;duplica el string inicial
+    mov rdi, r13
+    call mi_strdup
+    mov r14, rax
+    
+    ;si falla strdup da error
+    cmp r14, NULL
+    je .error
+    
+    ;inicializa la iteración por la lista
+    mov r13, qword [rbx]    ;r13 va a ser el primer nodo (current)
+    
+.recorrer_lista:
+    ;si current es null, termina
+    cmp r13, NULL
+    je .terminado
+    
+    ;verifica si el nodo tiene el type buscado
+    movzx eax, byte [r13 + 16]  ;eax = current->proc_type
+    cmp r12b, al
+    jne .siguiente_nodo         ;si no coincide va al siguiente nodo
+    
+    ;verifica si el nodo tiene un string válido
+    mov rax, qword [r13 + 24]
+    cmp rax, NULL
+    je .siguiente_nodo          ;si string es null va al siguiente nodo
+    
+    ;concatenar strings
+    mov rdi, r14
+    mov rsi, rax
+    call str_concat
+    mov rbx, rax        ;rbx = nuevo string concatenado
+    
+    ;verifica si la concatenación fue exitosa
+    cmp rbx, NULL
+    je .error_con_cleanup       ;si falla, limpia y da error
+    
+    ;libera el string anterior y asigna el nuevo
+    mov rdi, r14
+    call free
+    mov r14, rbx        ;r14 = nuevo string resultado
+    
+.siguiente_nodo:
+    ;va al siguiente nodo
+    mov r13, qword [r13]    ;r13 = current->next
+    jmp .recorrer_lista
+    
+.terminado:
+    ;devuelve el string concatenado
+    mov rax, r14
+    jmp .salir
+    
+.error_con_cleanup:
+    ;libera la memoria en caso de error
+    mov rdi, r14
+    call free
+    
+.error:
+    
+.salir:
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
     ret
