@@ -197,7 +197,6 @@ string_proc_list_add_node_asm:
     
 .error: ;como devuelve void la funcion no tengo que cambiar rax, no hago nada
     
-    
 .salir: ;libera los registros y retorna
     pop r13
     pop r12  
@@ -219,12 +218,12 @@ string_proc_list_concat_asm:
     mov r13, rdx
     
     ;si la lista es null da error
-    test rbx, rbx
-    jz .error
+    cmp rbx, NULL
+    je .error
     
     ;si string inicial es null da error
-    test r13, r13
-    jz .error
+    cmp r13, NULL
+    je .error
     
     ;duplica el string inicial
     mov rdi, r13
@@ -232,16 +231,16 @@ string_proc_list_concat_asm:
     mov r14, rax
     
     ;si falla strdup da error
-    test r14, r14
-    jz .error
+    cmp r14, NULL
+    je .error
     
     ;inicializa la iteración por la lista
     mov r13, qword [rbx]    ;r13 va a ser el primer nodo (current)
     
 .recorrer_lista:
     ;si current es null, termina
-    test r13, r13
-    jz .terminado
+    cmp r13, NULL
+    je .terminado
     
     ;verifica si el nodo tiene el type buscado
     movzx eax, byte [r13 + 16]  ;eax = current->proc_type
@@ -250,8 +249,8 @@ string_proc_list_concat_asm:
     
     ;verifica si el nodo tiene un string válido
     mov rax, qword [r13 + 24]
-    test rax, rax
-    jz .siguiente_nodo          ;si string es null va al siguiente nodo
+    cmp rax, NULL
+    je .siguiente_nodo          ;si string es null va al siguiente nodo
     
     ;concatenar strings
     mov rdi, r14
@@ -260,8 +259,8 @@ string_proc_list_concat_asm:
     mov rbx, rax        ;rbx = nuevo string concatenado
     
     ;verifica si la concatenación fue exitosa
-    test rbx, rbx
-    jz .error_con_cleanup       ;si falla, limpia y da error
+    cmp rbx, NULL
+    je .error_con_cleanup       ;si falla, limpia y da error
     
     ;libera el string anterior y asigna el nuevo
     mov rdi, r14
@@ -285,7 +284,7 @@ string_proc_list_concat_asm:
     
 .error:
     ;retirna null
-    xor rax, rax
+    mov rax, NULL
     
 .salir:
     pop r14
