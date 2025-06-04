@@ -284,7 +284,7 @@ string_proc_list_concat_asm:
     
 .error:
     ;retirna null
-    mov rax, NULL
+    ;mov rax, NULL
     
 .salir:
     pop r14
