@@ -142,7 +142,6 @@ string_proc_node_create_asm:
     call free
     
 .error:  ;error es una funcion que se llama si algo falla y retorna null
-    ;cmp rax, NULL
     pop r13
     pop r12
     pop rbx
@@ -163,12 +162,12 @@ string_proc_list_add_node_asm:
     mov r13, rdx
 
     ;si la lista es null da error
-    test rbx, rbx
-    jz .error
+    cmp rbx, NULL
+    je .error
     
     ;si el string es null da error
-    test r13, r13  
-    jz .error
+    cmp r13, NULL  
+    je .error
     
     ;crea un nuevo nodo con sus respectivos parametros
     movzx rdi, r12b
@@ -177,16 +176,16 @@ string_proc_list_add_node_asm:
     mov r13, rax
     
     ;si falla la creacion da error
-    test r13, r13
-    jz .error
+    cmp r13, NULL
+    je .error
     
     ;si tiene exito tienen que retornar 1
-    mov rax, 1
+    mov rax, TRUE
     
     ;se fija si la lista esta vacia
     mov rax, qword [rbx]
-    test rax, rax
-    jz .lista_vacia
+    cmp rax, NULL
+    je .lista_vacia
     
     mov rax, qword [rbx + 8]
     mov qword [r13 + 8], rax
@@ -200,7 +199,7 @@ string_proc_list_add_node_asm:
     jmp .salir
     
 .error: ;retorna 0 y sale
-    xor rax, rax
+    mov rax, FALSE
     jmp .salir
     
 .salir: ;libera los registros y retorna
