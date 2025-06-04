@@ -69,16 +69,17 @@ string_proc_list_create_asm:
     push rbp
     mov rbp, rsp
     
-    ;reservar 16 bytes
+    ;reservar 16 bytes para la estructura de la lista (puntero al primero y all ultimo)
     mov rdi, 16
     call malloc
     
     ;si malloc falla retornar null
-    test rax, rax
-    jz .error
+    cmp rax, NULL
+    je .error
     
-    mov qword [rax], 0
-    mov qword [rax + 8], 0
+    ;inicializa los punteros con null
+    mov qword [rax], NULL
+    mov qword [rax + 8], NULL
     
     ;rax ya tiene el puntero a retornar
     pop rbp
@@ -102,8 +103,8 @@ string_proc_node_create_asm:
     mov r12, rsi
     
     ;si el puntero al string es null retorno null
-    test r12, r12
-    jz .error
+    cmp r12, NULL
+    je .error
     
     ;reserva memoria para el nodo (32 bytes)
     mov rdi, 32
@@ -111,20 +112,20 @@ string_proc_node_create_asm:
     mov r13, rax
     
     ;si malloc falla retorna null
-    test r13, r13
-    jz .error
+    cmp r13, NULL
+    je .error
     
     ;crea una copia del string usando mi strdup
     mov rdi, r12
     call mi_strdup
     
     ;se fija si mi strdup fue exitosa y si no, libera el nodo
-    test rax, rax
-    jz .cleanup_node
+    cmp rax, NULL
+    je .cleanup_node
     
     ;inicializa los punteros al siguiete y al anterior del nodo, le asigna su proc_type y le pone su respectivo string
-    mov qword [r13], 0
-    mov qword [r13 + 8], 0
+    mov qword [r13], NULL
+    mov qword [r13 + 8], NULL
     mov byte [r13 + 16], bl
     mov qword [r13 + 24], rax
     
@@ -141,7 +142,7 @@ string_proc_node_create_asm:
     call free
     
 .error:  ;error es una funcion que se llama si algo falla y retorna null
-    xor rax, rax
+    ;cmp rax, NULL
     pop r13
     pop r12
     pop rbx
