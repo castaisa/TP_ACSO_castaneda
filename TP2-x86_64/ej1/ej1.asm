@@ -283,8 +283,6 @@ string_proc_list_concat_asm:
     call free
     
 .error:
-    ;retirna null
-    ;mov rax, NULL
     
 .salir:
     pop r14
