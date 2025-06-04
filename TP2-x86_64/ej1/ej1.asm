@@ -180,7 +180,7 @@ string_proc_list_add_node_asm:
     je .error
     
     ;si tiene exito tienen que retornar 1
-    mov rax, TRUE
+    ;mov rax, TRUE
     
     ;se fija si la lista esta vacia
     mov rax, qword [rbx]
@@ -199,8 +199,8 @@ string_proc_list_add_node_asm:
     jmp .salir
     
 .error: ;retorna 0 y sale
-    mov rax, FALSE
-    jmp .salir
+    ;mov rax, FALSE
+    ;jmp .salir
     
 .salir: ;libera los registros y retorna
     pop r13
