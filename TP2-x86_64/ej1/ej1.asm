@@ -26,8 +26,8 @@ mi_strdup:
     push rbx
     
     ;Si me pasan null tiro error
-    test rdi, rdi
-    jz .error
+    cmp rdi, NULL
+    je .error
     
     ;Guardo el puntero original
     mov rbx, rdi
@@ -40,11 +40,11 @@ mi_strdup:
     call malloc
     
     ;retornar null si falla malloc
-    test rax, rax
-    jz .error
+    cmp rax, NULL
+    je .error
     
     ;copia la cadena original a la nueva memoria
-    mov rdi, rax 
+    mov rdi, rax
     mov rsi, rbx
     push rax
     call strcpy
@@ -58,7 +58,7 @@ mi_strdup:
 
 .error:
     ;Retorna NULL en caso de error
-    xor rax, rax
+    mov rax, NULL
     pop rbx
     mov rsp, rbp
     pop rbp
