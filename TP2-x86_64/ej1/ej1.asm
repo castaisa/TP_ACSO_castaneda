@@ -210,72 +210,91 @@ string_proc_list_add_node_asm:
     ret
 
 string_proc_list_concat_asm:
-push    rbp
-        mov     rbp, rsp
-        sub     rsp, 64
-        mov     QWORD "" [rbp-40], rdi
-        mov     eax, esi
-        mov     QWORD "" [rbp-56], rdx
-        mov     BYTE "" [rbp-44], al
-        cmp     QWORD "" [rbp-40], 0
-        je      .L22
-        cmp     QWORD "" [rbp-56], 0
-        jne     .L23
-.L22:
-        mov     eax, 0
-        jmp     .L24
-.L23:
-        mov     rax, QWORD "" [rbp-56]
-        mov     rdi, rax
-        call    mi_strdup
-        mov     QWORD "" [rbp-8], rax
-        cmp     QWORD "" [rbp-8], 0
-        jne     .L25
-        mov     eax, 0
-        jmp     .L24
-.L25:
-        mov     rax, QWORD "" [rbp-40]
-        mov     rax, QWORD "" [rax]
-        mov     QWORD "" [rbp-16], rax
-        jmp     .L26
-.L29:
-        mov     rax, QWORD "" [rbp-16]
-        movzx   eax, BYTE "" [rax+16]
-        cmp     BYTE "" [rbp-44], al
-        jne     .L27
-        mov     rax, QWORD "" [rbp-16]
-        mov     rax, QWORD "" [rax+24]
-        test    rax, rax
-        je      .L27
-        mov     rax, QWORD "" [rbp-16]
-        mov     rdx, QWORD "" [rax+24]
-        mov     rax, QWORD "" [rbp-8]
-        mov     rsi, rdx
-        mov     rdi, rax
-        call    str_concat
-        mov     QWORD "" [rbp-24], rax
-        cmp     QWORD "" [rbp-24], 0
-        jne     .L28
-        mov     rax, QWORD "" [rbp-8]
-        mov     rdi, rax
-        call    free
-        mov     eax, 0
-        jmp     .L24
-.L28:
-        mov     rax, QWORD "" [rbp-8]
-        mov     rdi, rax
-        call    free
-        mov     rax, QWORD "" [rbp-24]
-        mov     QWORD "" [rbp-8], rax
-.L27:
-        mov     rax, QWORD "" [rbp-16]
-        mov     rax, QWORD "" [rax]
-        mov     QWORD "" [rbp-16], rax
-.L26:
-        cmp     QWORD "" [rbp-16], 0
-        jne     .L29
-        mov     rax, QWORD "" [rbp-8]
-.L24:
-        leave
-        ret
-
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push r12
+    push r13
+    push r14
+    
+    ;guardo parametros
+    mov rbx, rdi
+    mov r12b, sil
+    mov r13, rdx
+    
+    ;si la lista es null da error
+    test rbx, rbx
+    jz .error
+    
+    ;si string inicial es null da error
+    test r13, r13
+    jz .error
+    
+    ;duplica el string inicial
+    mov rdi, r13
+    call mi_strdup
+    mov r14, rax
+    
+    ;si falla strdup da error
+    test r14, r14
+    jz .error
+    
+    ;inicializa la iteración por la lista
+    mov r13, qword [rbx]    ;r13 va a ser el primer nodo (current)
+    
+.recorrer_lista:
+    ;si current es null, termina
+    test r13, r13
+    jz .terminado
+    
+    ;verifica si el nodo tiene el type buscado
+    movzx eax, byte [r13 + 16]  ;eax = current->proc_type
+    cmp r12b, al
+    jne .siguiente_nodo         ;si no coincide va al siguiente nodo
+    
+    ;verifica si el nodo tiene un string válido
+    mov rax, qword [r13 + 24]
+    test rax, rax
+    jz .siguiente_nodo          ;si string es null va al siguiente nodo
+    
+    ;concatenar strings
+    mov rdi, r14
+    mov rsi, rax
+    call str_concat
+    mov rbx, rax        ;rbx = nuevo string concatenado
+    
+    ;verifica si la concatenación fue exitosa
+    test rbx, rbx
+    jz .error_con_cleanup       ;si falla, limpia y da error
+    
+    ;libera el string anterior y asigna el nuevo
+    mov rdi, r14
+    call free
+    mov r14, rbx        ;r14 = nuevo string resultado
+    
+.siguiente_nodo:
+    ;va al siguiente nodo
+    mov r13, qword [r13]    ;r13 = current->next
+    jmp .recorrer_lista
+    
+.terminado:
+    ;devuelve el string concatenado
+    mov rax, r14
+    jmp .salir
+    
+.error_con_cleanup:
+    ;libera la memoria en caso de error
+    mov rdi, r14
+    call free
+    
+.error:
+    ;retirna null
+    xor rax, rax
+    
+.salir:
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+    ret
